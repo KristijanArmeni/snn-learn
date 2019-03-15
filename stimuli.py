@@ -53,17 +53,20 @@ def generate_sequence(n_inner, n_outer, seed=None):
 
         inn_seq = np.array([], dtype=str)
 
+        if seed is not None:
+            seed = seed+5*i  # every outer loop a different seed
+
+        opt1 = np.random.RandomState(seed).choice(a=allpairs, size=current_n_inner)  # randomly pick any possible combination
+        opt2 = np.random.RandomState(seed).choice(a=possible_targets, size=current_n_inner, p=[0.5, 0.5])  # pick 'AX' or 'BY' with p = 0.5
+
         # Inner loop generation routine
         for j in np.arange(0, current_n_inner):
 
             if seed is not None:
                 seed = seed+5+i*j  # Make sure seed is outer loop and inner loop specific
 
-            opt1 = np.random.RandomState(seed).choice(a=allpairs, size=1)[0]  # randomly pick any possible combination
-            opt2 = np.random.RandomState(seed).choice(a=possible_targets, size=1, p=[0.5, 0.5])[0]  # pick 'AX' or 'BY' with p = 0.5
-
             # pick a random or a target pair with p=0.5
-            inn_seq = np.append(inn_seq, np.random.RandomState(seed).choice(a=[opt1, opt2], size=1, p=[0.5, 0.5]))
+            inn_seq = np.append(inn_seq, np.random.RandomState(seed).choice(a=[opt1[j], opt2[j]], size=1, p=[0.5, 0.5]))
 
         out_seq = np.append(out_seq, inn_seq)
 
@@ -92,7 +95,7 @@ def generate_sequence(n_inner, n_outer, seed=None):
             else:
                 response[h] = 0
 
-    return sequence, response
+    return sequence, response, out_seq
 
 
 def encode_input(sequence):
@@ -117,52 +120,22 @@ def encode_input(sequence):
     return inp
 
 
-def generate_ds(max_inner=4, n_outer=10, n_epochs=1, seed=None):
-
-    ds = []
-    resp = []
-    inp = []
-    ep = []
-
-    for i in range(n_epochs):
-
-        if seed is not None:
-            seed = seed + 5 + 2*i
-
-        sequence, response = generate_sequence(n_inner=max_inner, n_outer=n_outer, seed=seed)
-        onehot = encode_input(sequence)
-        epoch = np.tile(i, sequence.shape)
-
-        ds.append(sequence)
-        resp.append(response)
-        inp.append(onehot.T)
-        ep.append(epoch)
-
-    return np.array(ds), np.array(resp), np.array(inp), np.array(ep)
-
-
 class Dataset(data.Dataset):
 
-    def __init__(self, sequence=None, response=None, encoding=None, epoch=None):
+    def __init__(self, sequence=None, response=None, encoding=None):
 
         self.sequence = sequence
         self.response = response
         self.encoding = encoding
-        self.epoch = epoch
 
     def __getitem__(self, index):
 
-        symbol = np.concatenate(self.sequence)[index]
-        response = np.concatenate(self.response)[index]
-        vector = np.concatenate(self.encoding)[index, :]
-        epoch = np.concatenate(self.epoch)[index]
+        symbol = self.sequence[index]
+        response = self.response[index]
+        vector = self.encoding[index, :]
 
-        return symbol, response, vector, epoch
+        return symbol, response, vector
 
     def __len__(self):
 
-        return np.sum([a.shape[0] for a in self.sequence])
-
-    def save_as_txt(self, path):
-
-        pass
+        return len(self.sequence)
