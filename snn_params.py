@@ -2,6 +2,7 @@
 
 import numpy as np
 
+
 class Params(object):
 
     def __init__(self):
