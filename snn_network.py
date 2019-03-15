@@ -18,6 +18,12 @@ class SNN(object):
         self.gsra = dict.fromkeys(["tau", "delta", "E_r"])  # spike-rate adaptation
         self.gref = dict.fromkeys(["tau", "delta", "E_r"])  # refractory conductance
 
+    def __call__(self, I_in, dt):
+
+        V, spikes, spike_count, gsra, gref = self.forward(self, I_in=I_in, dt=dt)
+
+        return V, spikes, spike_count, gsra, gref
+
     def init_neurons(self, n=1000):
 
         self.neurons["N"] = n
@@ -100,13 +106,13 @@ class SNN(object):
         if downsample is not False:
             t = t[::downsample]  # take evenly spaced samples from the original timeaxis
 
-        self.recording["V"] = np.array([np.zeros((dat.shape[0], n_neurons, len(t))) for dat in dataset.sequence])
-        self.recording["gsra"] = np.array([np.zeros((dat.shape[0], n_neurons, len(t))) for dat in dataset.sequence])
-        self.recording["gref"] = np.array([np.zeros((dat.shape[0], n_neurons, len(t))) for dat in dataset.sequence])
+        self.recording["V"] = np.zeros((len(dataset.sequence), n_neurons, len(t)))
+        self.recording["gsra"] = np.zeros((len(dataset.sequence), n_neurons, len(t)))
+        self.recording["gref"] = np.zeros((len(dataset.sequence), n_neurons, len(t)))
         self.recording["t_orig"] = t_orig
         self.recording['t'] = t
-        self.recording["spikes"] = np.array([np.zeros((dat.shape[0], n_neurons, len(t)), dtype=bool) for dat in dataset.sequence])
-        self.recording["count"] = np.array([np.zeros((dat.shape[0], n_neurons)) for dat in dataset.sequence])
+        self.recording["spikes"] = np.zeros((len(dataset.sequence), n_neurons, len(t)), dtype=bool)
+        self.recording["count"] = np.zeros((len(dataset.sequence), n_neurons))
         self.recording["axes"] = ["neuron_nr", "time", "trial_nr"]
         self.recording["downsample"] = downsample
 
