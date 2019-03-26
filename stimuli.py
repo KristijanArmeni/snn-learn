@@ -132,7 +132,7 @@ class Dataset(data.Dataset):
 
         symbol = self.sequence[index]
         response = self.response[index]
-        vector = self.encoding[index, :]
+        vector = self.encoding[:, index]
 
         return symbol, response, vector
 
