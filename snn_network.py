@@ -178,7 +178,7 @@ class SNN(object):
             V = V[:, ::self.recording["downsample"]]
             spikes = spikes[:, ::self.recording["downsample"]]
             gsra = gsra[:, ::self.recording["downsample"]]
-            gref = gsra[:, ::self.recording["downsample"]]
+            gref = gref[:, ::self.recording["downsample"]]
 
         return V, spikes, spike_count, gsra, gref
 
@@ -186,23 +186,17 @@ class SNN(object):
 
         dt = self.recording["t"][1]-self.recording["t"][0]  # infer time step
 
-        # Loop over epochs
-        for j in tqdm(range(len(dataset.sequence))):
-            print('Epoch {:d}'.format(j))
+        # Loop over trials
+        for i in range(len(dataset.sequence)):
+            print('Trial {:d}'.format(i))
 
-            encodings = dataset.encoding[j]
+            stimulated_neurons = self.w["input"] @ dataset.encoding[:, i]
+            I_in = np.outer(stimulated_neurons, current)
 
-            # Loop over trials
-            for i in range(len(encodings)):
-                print('Trial {:d}'.format(i))
+            V, spikes, count, gsra, gref = self.forward(I_in=I_in, dt=dt)
 
-                stimulated_neurons = self.w["input"] @ encodings[i, :]
-                I_in = np.outer(stimulated_neurons, current)
-
-                V, spikes, count, gsra, gref = self.forward(I_in=I_in, dt=dt)
-
-                self.recording["V"][j][i, :, :] = V
-                self.recording["spikes"][j][i, :, :] = spikes
-                self.recording["count"][j][i, :] = count
-                self.recording["gsra"][j][i, :, :] = gsra
-                self.recording["gref"][j][i, :, :] = gsra
+            self.recording["V"][i, :, :] = V
+            self.recording["spikes"][i, :, :] = spikes
+            self.recording["count"][i, :] = count
+            self.recording["gsra"][i, :, :] = gsra
+            self.recording["gref"][i, :, :] = gref
