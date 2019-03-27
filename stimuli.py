@@ -108,7 +108,7 @@ def encode_input(sequence):
     INPUTS
     sequence = 1D numpy string array, representing input symbol sequence"""
 
-    alphabet = np.unique(sequence)
+    alphabet = ["1", "2", "A", "B", "C", "X", "Y", "Z"]
     dim = len(alphabet)
     inp = np.zeros(shape=(dim, sequence.shape[0]), dtype=int)
     vec = np.eye(dim, dim)
