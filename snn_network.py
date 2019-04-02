@@ -10,9 +10,9 @@ class SNN(object):
         self.neurons = {"N": n_neurons}
 
         # configure weight matrices
-        self.w = {"input": np.ndarray(shape=(self.neurons, input_dim)),
-                  "recurrent": np.ndarray(shape=(self.neurons, self.neurons)),
-                  "output": np.ndarray(shape=(self.neurons, output_dim))}
+        self.w = {"input": np.ndarray(shape=(n_neurons, input_dim)),
+                  "recurrent": np.ndarray(shape=(n_neurons, n_neurons)),
+                  "output": np.ndarray(shape=(n_neurons, output_dim))}
 
         self.syn = dict.fromkeys(["tau", "delta_g"])  # synaptic parameters
 
