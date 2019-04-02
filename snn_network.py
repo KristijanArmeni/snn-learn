@@ -1,18 +1,21 @@
 
 import numpy as np
-import scipy as sp
-from scipy import signal
-from scipy import signal
-from tqdm import tnrange, tqdm
 
 
 class SNN(object):
 
-    def __init__(self):
+    def __init__(self, n_neurons=1000, input_dim=None, output_dim=None):
 
-        self.neurons = dict.fromkeys(["N"])
+        # store number of neurons
+        self.neurons = {"N": n_neurons}
+
+        # configure weight matrices
+        self.w = {"input": np.ndarray(shape=(self.neurons, input_dim)),
+                  "recurrent": np.ndarray(shape=(self.neurons, self.neurons)),
+                  "output": np.ndarray(shape=(self.neurons, output_dim))}
+
         self.syn = dict.fromkeys(["tau", "delta_g"])  # synaptic parameters
-        self.w = dict.fromkeys(["input", "recurrent", "output"])  # weights
+
         self.memb = dict.fromkeys(["E", "V_reset", "V_thr", "R", "tau"])  # membrane parameters
         self.recording = dict.fromkeys(["V", "t_orig", "t", "gsra", "gref", "spikes", "labels", "downsample"])  # output states
         self.gsra = dict.fromkeys(["tau", "delta", "E_r"])  # spike-rate adaptation
@@ -23,16 +26,6 @@ class SNN(object):
         V, spikes, spike_count, gsra, gref = self.forward(self, I_in=I_in, dt=dt)
 
         return V, spikes, spike_count, gsra, gref
-
-    def init_neurons(self, n=1000):
-
-        self.neurons["N"] = n
-
-    def init_weights(self, dim):
-
-        self.w['input'] = np.ndarray(shape=(dim[1], dim[0]))
-        self.w['recurrent'] = np.ndarray(shape=(dim[1], dim[1]))
-        self.w['output'] = np.ndarray(shape=(dim[1], dim[2]))
 
     def config_membrane(self, E=-0.07, V_reset=-0.08, V_thr=-0.05, R=1e6, tau=0.010):
         """config_membrane() sets the values of membrane parameters in self.memb"""
