@@ -55,21 +55,14 @@ class SNN(object):
 
     def config_input_weights(self, mean=0.4, density=0.05, seed=None):
 
-        if seed is not None:
-            np.random.seed(seed)  # set fixed seed for debugging
-        sel = np.random.random(size=self.w['input'].shape) > density  # define connection probability
+        sel = np.random.RandomState(seed=seed).random_sample(size=self.w['input'].shape) > density  # define connection probability
 
-        if seed is not None:
-            np.random.seed(seed)
-        self.w["input"][:] = np.random.exponential(scale=mean, size=self.w['input'].shape)
+        self.w["input"][:] = np.random.RandomState(seed=seed).exponential(scale=mean, size=self.w['input'].shape)
         self.w["input"][sel] = 0  # put 95% of connections to 0
 
     def config_recurrent_weights(self, density=0.1, ex=0.8, seed=None):
 
-        if seed is not None:
-            np.random.seed(seed)  # set fixed seed for debugging
-
-        self.w["recurrent"][:] = np.random.random(size=self.w["recurrent"].shape)
+        self.w["recurrent"][:] = np.random.RandomState(seed=seed).random_sample(size=self.w["recurrent"].shape)
         sel = self.w["recurrent"] > density
         self.w["recurrent"][sel] = 0  # set selected weights to 0
 
