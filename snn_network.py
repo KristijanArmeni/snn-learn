@@ -4,7 +4,7 @@ import numpy as np
 
 class SNN(object):
 
-    def __init__(self, n_neurons=1000, input_dim=None, output_dim=None):
+    def __init__(self, params, n_neurons=1000, input_dim=None, output_dim=None):
 
         # store number of neurons
         self.neurons = {"N": n_neurons}
@@ -12,46 +12,23 @@ class SNN(object):
         # configure weight matrices
         self.w = {"input": np.ndarray(shape=(n_neurons, input_dim)),
                   "recurrent": np.ndarray(shape=(n_neurons, n_neurons)),
-                  "output": np.ndarray(shape=(n_neurons, output_dim))}
+                  "output": np.ndarray(shape=(n_neurons, output_dim))
+                  }
 
-        self.syn = dict.fromkeys(["tau", "delta_g"])  # synaptic parameters
+        # parameters
+        self.memb = params.memb  # membrane parameters
+        self.syn = params.syn  # synaptic parameters
+        self.gsra = params.gsra  # spike-rate adaptation
+        self.gref = params.gref  # refractory conductance
 
-        self.memb = dict.fromkeys(["E", "V_reset", "V_thr", "R", "tau"])  # membrane parameters
-        self.recording = dict.fromkeys(["V", "t_orig", "t", "gsra", "gref", "spikes", "labels", "downsample"])  # output states
-        self.gsra = dict.fromkeys(["tau", "delta", "E_r"])  # spike-rate adaptation
-        self.gref = dict.fromkeys(["tau", "delta", "E_r"])  # refractory conductance
+        # for storing output states
+        self.recording = dict.fromkeys(["V", "t_orig", "t", "gsra", "gref", "spikes", "labels", "downsample"])
 
     def __call__(self, I_in, dt):
 
         V, spikes, spike_count, gsra, gref = self.forward(self, I_in=I_in, dt=dt)
 
         return V, spikes, spike_count, gsra, gref
-
-    def config_membrane(self, E=-0.07, V_reset=-0.08, V_thr=-0.05, R=1e6, tau=0.010):
-        """config_membrane() sets the values of membrane parameters in self.memb"""
-
-        self.memb["E"] = E
-        self.memb["V_reset"] = V_reset
-        self.memb["V_thr"] = V_thr
-        self.memb["R"] = R
-        self.memb["tau"] = tau
-
-    def config_gsra(self, tau=0.4, delta=15e-9, E_r=-0.08):
-
-        self.gsra["tau"] = tau
-        self.gsra["delta"] = delta
-        self.gsra["E_r"] = E_r
-
-    def config_gref(self, tau=0.002, delta=200e-9, E_r=-0.08):
-
-        self.gref["tau"] = tau
-        self.gref["delta"] = delta
-        self.gref["E_r"] = E_r
-
-    def config_syn(self, tau=0.05, delta_g=10e-9):
-
-        self.syn["tau"] = tau
-        self.syn["delta_g"] = delta_g
 
     def config_input_weights(self, mean=0.4, density=0.05, seed=None):
 
