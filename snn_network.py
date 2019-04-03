@@ -37,6 +37,8 @@ class SNN(object):
         self.w["input"][:] = np.random.RandomState(seed=seed).exponential(scale=mean, size=self.w['input'].shape)
         self.w["input"][sel] = 0  # put 95% of connections to 0
 
+        return self
+
     def config_recurrent_weights(self, density=0.1, ex=0.8, seed=None):
 
         self.w["recurrent"][:] = np.random.RandomState(seed=seed).random_sample(size=self.w["recurrent"].shape)
@@ -46,6 +48,8 @@ class SNN(object):
         # set excitatory and inhibitory connections
         n_exc = round(self.w["recurrent"].shape[0]*ex)  # number of exc. synapses
         self.w["recurrent"][:, n_exc:] *= -5  # make inhibitory connections five times stronger
+
+        return self
 
     def weight_scaling(self, input_scaling=5, recurrent_scaling=1.9e-9):
 
