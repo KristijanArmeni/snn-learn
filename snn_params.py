@@ -5,28 +5,51 @@ import numpy as np
 
 class Params(object):
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         """fixme"""
 
-        self.task = dict.fromkeys(['alphabet', 'name'])
-        self.task['alphabet'] = np.array(["1", "2", "A", "B", "C", "X", "Y", "Z"])
-        self.task['name'] = '12AX'
+        self.task = {
+                "alphabet": np.array(["1", "2", "A", "B", "C", "X", "Y", "Z"]),
+                "name": "12AX"
+            }
+
+        self.memb = {
+            "E": kwargs.get("E", -0.07),
+            "V_reset": kwargs.get("V_reset", -0.08),
+            "V_thr": kwargs.get("V_thr", -0.05),
+            "R": kwargs.get("R", 1e6),
+            "tau": kwargs.get("tau", 0.01)
+            }
+
+        self.sim = {
+            "tmin": kwargs.get("tmin", 0),
+            "tmax": kwargs.get("tmax", 0.6),
+            "dt": kwargs.get("dt", 0.001),
+            "t": (np.arange(start=kwargs.get("tmin", 0)*1000,
+                            stop=(kwargs.get("tmax", 0.6)*1000)+1,
+                            step=kwargs.get("dt", 0.001)*1000)
+                  )/1000
+            }
+
+        self.gsra = {
+            "tau": kwargs.get("tau_gsra", 0.4),
+            "delta": kwargs.get("delta_gsra", 15e-9),
+            "E_r": kwargs.get("E_gsra", -0.08)
+            }
+
+        self.gref = {
+            "tau": kwargs.get("tau_gref", 0.002),
+            "delta": kwargs.get("delta_gref", 200e-9),
+            "E_r": kwargs.get("E_gref", -0.08)
+            }
+
+        self.syn = {
+            "tau": kwargs.get("tau_syn", 0.05),
+            "delta_g": kwargs.get("delta_syn", 10e-9)
+            }
 
         self.data = dict.fromkeys(["train", "validate", "test"])
-        self.sim = dict.fromkeys(["dt", "tmin", "tmax", "T"])
         self.inp_cur = dict.fromkeys(["I_amp", "t_on", "t_off", "type"])
-
-    def config_sim(self, tmin=0, tmax=0.6, dt=0.001):
-        """config_sim(tmin, tmax, dt) configures the
-        simulation parameters.
-        """
-        self.sim["dt"] = dt
-        self.sim["tmin"] = tmin
-        self.sim["tmax"] = tmax
-
-        # Create integer axis in seconds
-        self.sim["T"] = np.arange(start=tmin*1000, stop=(tmax*1000)+1, step=dt*1000)
-        self.sim["T"] /= 1000  # convert back to milliseconds
 
     def config_input_current(self, I_amp=4.4e-9, t_on=0.3, t_off=0.35):
         """config_input_current(I_amp, t_on, t_off) configures the
@@ -54,3 +77,5 @@ class Params(object):
         self.data['train'] = train
         self.data['validate'] = validate
         self.data['test'] = test
+
+
