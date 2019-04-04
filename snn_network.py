@@ -167,3 +167,21 @@ class SNN(object):
             self.recording["count"][i, :] = count
             self.recording["gsra"][i, :, :] = gsra
             self.recording["gref"][i, :, :] = gref
+
+    def avg_frate(self, toi):
+
+        stim_time = 0.05  # in seconds, 50 milliseconds stimulation time
+        n_trl = self.recording["count"].shape[0]
+
+        total_time = n_trl * stim_time
+        total_spikes = np.sum(self.recording["count"], axis=0)
+
+        frate = total_spikes / total_time  # firing rate per neuron
+
+        # mean over active neurons
+        activated = self.recording["spikes"].any(axis=2).any(axis=0)
+        mean = np.mean(frate[activated])
+        std = np.std(frate[activated])
+
+        return frate, mean, std
+
