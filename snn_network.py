@@ -1,5 +1,6 @@
 
 import numpy as np
+import pickle
 
 
 class SNN(object):
@@ -168,7 +169,7 @@ class SNN(object):
             self.recording["gsra"][i, :, :] = gsra
             self.recording["gref"][i, :, :] = gref
 
-    def avg_frate(self, toi):
+    def avg_frate(self):
 
         stim_time = 0.05  # in seconds, 50 milliseconds stimulation time
         n_trl = self.recording["count"].shape[0]
@@ -179,9 +180,45 @@ class SNN(object):
         frate = total_spikes / total_time  # firing rate per neuron
 
         # mean over active neurons
-        activated = self.recording["spikes"].any(axis=2).any(axis=0)
-        mean = np.mean(frate[activated])
-        std = np.std(frate[activated])
+        #activated = self.recording["spikes"].any(axis=2).any(axis=0)
+        mean = np.mean(frate)
+        std = np.std(frate)
 
-        return frate, mean, std
+        return frate
 
+    def avg_states(self, toi=None):
+
+        """
+        Compute average membrane voltage per neuron per trial
+
+        :param data: array of membrane voltage (trial x neurons x time) created in net.config_recording().
+        :param toi: list of integers, onset and offset times
+        :return out: ndarray (trials x neurons), average voltage
+        """
+
+        if toi is None:
+            toi = [0, 0.05]
+
+        # get timing sample points
+        ton = (np.abs(self.recording["t"] - toi[0])).argmin()
+        toff = (np.abs(self.recording["t"] - toi[1])).argmin()
+
+        # take average over selected time period
+        out = np.nanmean(a=self.recording["V"][:, :, ton:toff], axis=2)
+
+        return out
+
+    def save_recording(self, path):
+
+        recording = self.recording
+
+        with open(path + ".pkl", "wb") as f:
+            pickle.dump(recording, f)
+
+    @staticmethod
+    def load_recording(file):
+
+        with open(file, "rb") as f:
+            recording = pickle.load(f)
+
+        return recording
