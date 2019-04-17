@@ -66,7 +66,7 @@ class Params(object):
         onind = np.where(t == on)[0]
         offind = np.where(t == off)[0]
 
-        I[onind[0]:offind[0]] = amp
+        I[onind[0]:(offind[0]+1)] = amp
 
         return I
 
