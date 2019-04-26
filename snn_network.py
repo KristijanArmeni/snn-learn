@@ -84,7 +84,7 @@ class SNN(object):
         self.recording["axes"] = ["neuron_nr", "time", "trial_nr"]
         self.recording["downsample"] = downsample
 
-    def forward(self, I_in, dt):
+    def forward(self, I_in, state, dt):
 
         # Initialize local versions of variables
         samples = len(self.recording["t_orig"])     # simulate with original high sample time axis
@@ -93,6 +93,9 @@ class SNN(object):
         I_rec = np.zeros((n, samples))              # recurrent input
         V = np.zeros((n, samples))                  # membrane potential
         V[:, :] = self.memb["E"]                    # initialize with E
+
+        # assign the past state to the first sample
+        V[:, 0] = state
 
         gsra = np.zeros((n, samples))               # sra conductance
         gref = np.zeros((n, samples))               # refractory conductance
@@ -161,7 +164,11 @@ class SNN(object):
             stimulated_neurons = self.w["input"] @ dataset.encoding[:, i]
             I_in = np.outer(stimulated_neurons, current)
 
-            V, spikes, count, gsra, gref = self.forward(I_in=I_in, dt=dt)
+            if i == 0:
+                state = self.memb["E"]  # start with baseline state if not yet stimulated
+
+            V, spikes, count, gsra, gref = self.forward(I_in=I_in, state=state, dt=dt)
+            state = V[:, -1]  # carry the final state to the next stimulation
 
             self.recording["V"][i, :, :] = V
             self.recording["spikes"][i, :, :] = spikes
@@ -207,18 +214,3 @@ class SNN(object):
         out = np.nanmean(a=self.recording["V"][:, :, ton:toff], axis=2)
 
         return out
-
-    def save_recording(self, path):
-
-        recording = self.recording
-
-        with open(path + ".pkl", "wb") as f:
-            pickle.dump(recording, f)
-
-    @staticmethod
-    def load_recording(file):
-
-        with open(file, "rb") as f:
-            recording = pickle.load(f)
-
-        return recording
