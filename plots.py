@@ -3,11 +3,23 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 
+def plot_trial(model=None, trial=None, variable=None):
+
+    plt.figure()
+    plt.imshow(model.recording[variable][trial-1, :, :], aspect="auto")
+    plt.xlabel("Time (msec)")
+    plt.ylabel("neuron")
+    plt.title("Trial {}".format(trial))
+    if variable == "V":
+        c = plt.colorbar()
+        c.set_label("Voltage (mV)")
+    plt.show()
+
 # convenience function for plotting classifier output
 def plot_scores(scores, title=None):
 
     fig, ax = plt.subplots(1, 3)
-    fig.suptitle("Learning curves: Naive Bayes (balanced classes, 5-fold cross-validation)", size=18)
+    fig.suptitle(title, size=18)
 
     for i, data in enumerate(scores):
 
