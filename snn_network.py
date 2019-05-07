@@ -1,14 +1,16 @@
 
 import numpy as np
+from matplotlib import pyplot as plt
 import pickle
 
 
 class SNN(object):
 
-    def __init__(self, params, n_neurons=1000, input_dim=None, output_dim=None):
+    def __init__(self, params, n_neurons=1000, input_dim=None, output_dim=None, syn_adapt=True):
 
         # store number of neurons
         self.neurons = {"N": n_neurons}
+        self.syn_adapt = syn_adapt
 
         # configure weight matrices
         self.w = {"input": np.ndarray(shape=(n_neurons, input_dim)),
@@ -17,6 +19,7 @@ class SNN(object):
                   }
 
         # parameters
+        self.task = params.task
         self.memb = params.memb  # membrane parameters
         self.syn = params.syn  # synaptic parameters
         self.gsra = params.gsra  # spike-rate adaptation
@@ -84,7 +87,7 @@ class SNN(object):
         self.recording["axes"] = ["neuron_nr", "time", "trial_nr"]
         self.recording["downsample"] = downsample
 
-    def forward(self, I_in, state, dt):
+    def forward(self, I_in, states, dt):
 
         # Initialize local versions of variables
         samples = len(self.recording["t_orig"])     # simulate with original high sample time axis
@@ -94,13 +97,10 @@ class SNN(object):
         V = np.zeros((n, samples))                  # membrane potential
         V[:, :] = self.memb["E"]                    # initialize with E
 
-        # assign the past state to the first sample
-        V[:, 0] = state
-
         gsra = np.zeros((n, samples))               # sra conductance
         gref = np.zeros((n, samples))               # refractory conductance
-        spikes = np.zeros((n, samples), dtype=bool)  # spike log
-        fired = np.zeros((n, samples), dtype=bool)  # logical for active neurons
+        spikes = np.zeros((n, samples), dtype=bool) # spike log
+        fired = np.zeros((n,), dtype=bool)          # logical for active neurons
         theta = self.memb["V_thr"]                  # threshold variable
 
         tau = self.memb["tau"]
@@ -110,6 +110,19 @@ class SNN(object):
         E_gsra = self.gsra["E_r"]
         tau_gsra = self.gsra["tau"]
         tau_gref = self.gref["tau"]
+
+        # assign the past states to the first samples of dynamic variables
+        V[:, 0] = states["V"][:]
+        gsra[:, 0] = states["gsra"][:]
+        gref[:, 0] = states["gref"][:]
+        I_rec[:, 0] = states["I_rec"][:]
+        fired[:] = states["spikes"][:]
+
+        # set the parameter which controls the adaptation term in the update eq
+        if self.syn_adapt:
+            c = 1
+        else:
+            c = 0
 
         # Stimulation loop (start indexing from 1)
         for k in np.arange(1, samples):
@@ -125,7 +138,7 @@ class SNN(object):
             # Integrate voltage change
             dV = dt/tau * (E - V[:, k-1]) + \
                 R * (I_in[:, k] + I_rec[:, k-1]) - \
-                ((V[:, k-1] - E_gsra) * R * (gsra[:, k-1] + gref[:, k-1]))
+                c * ((V[:, k-1] - E_gsra) * R * (gsra[:, k-1] + gref[:, k-1]))  # adaptation term
 
             # update voltage
             V[:, k] = V[:, k-1] + dV
@@ -151,11 +164,20 @@ class SNN(object):
             gsra = gsra[:, ::self.recording["downsample"]]
             gref = gref[:, ::self.recording["downsample"]]
 
-        return V, spikes, spike_count, gsra, gref
+        return V, spikes, spike_count, gsra, gref, I_rec
 
-    def train(self, dataset, current):
+    def train(self, dataset, current, reset_states=None):
 
         dt = self.recording["t"][1]-self.recording["t"][0]  # infer time step
+
+        # create dict for storing dynamic variables
+        states = dict.fromkeys(["V", "I_rec", "gsra", "gref"])
+
+        states["V"] = np.zeros(self.neurons["N"],)
+        states["I_rec"] = np.zeros(self.neurons["N"],)
+        states["gsra"] = np.zeros(self.neurons["N"],)
+        states["gref"] = np.zeros(self.neurons["N"],)
+        states["spikes"] = np.zeros(self.neurons["N"], dtype=bool)
 
         # Loop over trials
         for i in range(len(dataset.sequence)):
@@ -164,12 +186,28 @@ class SNN(object):
             stimulated_neurons = self.w["input"] @ dataset.encoding[:, i]
             I_in = np.outer(stimulated_neurons, current)
 
-            if i == 0:
-                state = self.memb["E"]  # start with baseline state if not yet stimulated
+            # keep states for non onset symbols, else they're reset
+            if reset_states == "sentence":
 
-            V, spikes, count, gsra, gref = self.forward(I_in=I_in, state=state, dt=dt)
-            state = V[:, -1]  # carry the final state to the next stimulation
+                if dataset.sequence[i] == "1" or dataset.sequence[i] == "2":
 
+                    # store the states of dynamic variable and take them to the next stimulation
+                    states["V"][:] = self.memb["E"]
+                    states["I_rec"][:] = 0
+                    states["gsra"][:] = 0
+                    states["gref"][:] = 0
+                    states["spikes"][:] = False
+
+            V, spikes, count, gsra, gref, I_rec = self.forward(I_in=I_in, states=states, dt=dt)
+
+            # store the states of dynamic variable and take them to the next stimulation
+            states["V"] = V[:, -1]
+            states["I_rec"] = I_rec[:, -1]
+            states["gsra"] = gsra[:, -1]
+            states["gref"] = gref[:, -1]
+            states["spikes"] = spikes[:, -1]
+
+            # store total recordings for output
             self.recording["V"][i, :, :] = V
             self.recording["spikes"][i, :, :] = spikes
             self.recording["count"][i, :] = count
