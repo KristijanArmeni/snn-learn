@@ -166,7 +166,7 @@ class SNN(object):
 
         return V, spikes, spike_count, gsra, gref, I_rec
 
-    def train(self, dataset, current, reset_states=None):
+    def train(self, dataset, current, reset_states="sentence"):
 
         dt = self.recording["t"][1]-self.recording["t"][0]  # infer time step
 
@@ -191,12 +191,12 @@ class SNN(object):
 
                 if dataset.sequence[i] == "1" or dataset.sequence[i] == "2":
 
-                    # store the states of dynamic variable and take them to the next stimulation
-                    states["V"][:] = self.memb["E"]
-                    states["I_rec"][:] = 0
+                    # reset the states of dynamic variables and take them to the next stimulation
+                    states["V"][:] = self.memb["E"]  # reset to resting potential
+                    states["I_rec"][:] = 0           # zero currents
                     states["gsra"][:] = 0
                     states["gref"][:] = 0
-                    states["spikes"][:] = False
+                    states["spikes"][:] = False      # clear firing history
 
             V, spikes, count, gsra, gref, I_rec = self.forward(I_in=I_in, states=states, dt=dt)
 
