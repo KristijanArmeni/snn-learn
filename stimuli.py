@@ -3,7 +3,7 @@ import numpy as np
 from torch.utils import data
 
 
-def generate_sequence(n_inner, n_outer, seed=None):
+def generate_sequence(possible_n_inner=None, n_outer=None, seed=None):
 
     """ generate_sequence() creates a sequence of symbols to be used in
     1-2-AX continous performance task as described in Frank et al., 2001
@@ -23,8 +23,6 @@ def generate_sequence(n_inner, n_outer, seed=None):
     """
     pass
 
-    possible_lens = np.arange(1, n_inner+1)  # len(inner_loop) = {1, 2, 3, 4}
-
     # Define alphabet
     outer_symbols = ["1", "2"]        # Sampling of outer symbols has equal probability
     inner_symbols = ["A", "B", "C"]
@@ -36,8 +34,8 @@ def generate_sequence(n_inner, n_outer, seed=None):
     possible_targets = ["AX", "BY"]
 
     # Define sequences
-    inner_seq = np.random.RandomState(seed).choice(possible_lens, n_outer)              # determine lengths of inner loops
-    outer_seq = np.random.RandomState(seed).choice(outer_symbols, n_outer, [0.5, 0.5])  # choose 1 or 2 with p = 0.5
+    inner_seq = np.random.RandomState(seed).choice(possible_n_inner, n_outer, replace=True)                # determine lengths of inner loops
+    outer_seq = np.random.RandomState(seed+123).choice(outer_symbols, n_outer, replace=True, p=[0.5, 0.5])  # choose 1 or 2 with p = 0.5
 
     # LOOP
 
@@ -56,8 +54,8 @@ def generate_sequence(n_inner, n_outer, seed=None):
         if seed is not None:
             seed = seed+5*i  # every outer loop a different seed
 
-        opt1 = np.random.RandomState(seed).choice(a=allpairs, size=current_n_inner)  # randomly pick any possible combination
-        opt2 = np.random.RandomState(seed).choice(a=possible_targets, size=current_n_inner, p=[0.5, 0.5])  # pick 'AX' or 'BY' with p = 0.5
+        opt1 = np.random.RandomState(seed).choice(a=allpairs, size=current_n_inner)  # array with selection for any symbol pair
+        opt2 = np.random.RandomState(seed+123).choice(a=possible_targets, size=current_n_inner, p=[0.5, 0.5])  # pick 'AX' or 'BY' with p = 0.5
 
         # Inner loop generation routine
         for j in np.arange(0, current_n_inner):
@@ -139,3 +137,13 @@ class Dataset(data.Dataset):
     def __len__(self):
 
         return len(self.sequence)
+
+    def segment(self):
+
+        id = np.sort(np.hstack([np.where(self.sequence == "1"), np.where(self.sequence == "2")]))
+        sentmp = np.split(self.sequence, id[0])
+
+        sen = [a.tolist() for a in sentmp]
+        sen.pop(0)
+
+        return sen
