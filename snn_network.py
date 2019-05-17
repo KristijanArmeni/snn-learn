@@ -2,6 +2,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import pickle
+from tqdm import tqdm
 
 
 class SNN(object):
@@ -15,8 +16,9 @@ class SNN(object):
         # configure weight matrices
         self.w = {"input": np.ndarray(shape=(n_neurons, input_dim)),
                   "recurrent": np.ndarray(shape=(n_neurons, n_neurons)),
-                  "output": np.ndarray(shape=(n_neurons, output_dim))
-                  }
+                  "output": np.ndarray(shape=(n_neurons, output_dim)),
+                  "input_scaling": 0,
+                  "recurrent_scaling": 0}
 
         # parameters
         self.task = params.task
@@ -180,8 +182,8 @@ class SNN(object):
         states["spikes"] = np.zeros(self.neurons["N"], dtype=bool)
 
         # Loop over trials
-        for i in range(len(dataset.sequence)):
-            print('Trial {:d}'.format(i))
+        for i in tqdm(range(len(dataset.sequence))):
+            # print('Trial {:d}'.format(i))
 
             stimulated_neurons = self.w["input"] @ dataset.encoding[:, i]
             I_in = np.outer(stimulated_neurons, current)
@@ -252,3 +254,121 @@ class SNN(object):
         out = np.nanmean(a=self.recording["V"][:, :, ton:toff], axis=2)
 
         return out
+
+    def rate_tuning(self, parameters, input_current, dataset, input_scale, input_step, rec_scale, rec_step, targets,
+                    skip_input=False):
+
+        if not skip_input:
+
+            fr = 0
+            c = 1
+
+            input_scales = []
+            input_rates = []
+            not_converge = False
+
+            # disconnect internal connectivity
+            self.w["recurrent"][:] *= 0
+
+            while fr < targets[0] or fr > targets[1]:
+
+                print("[Iteration {:d} (N={:d})]".format(c, self.neurons["N"]))
+                print("Average f. rate: {:f} Hz".format(fr))
+                print("Tuning input weights for {:f}...".format(input_scale))
+
+                # scale the input weights
+                self.w["input"][:] *= input_scale
+
+                self.config_recording(n_neurons=self.neurons["N"], t=parameters.sim["t"], dataset=dataset, downsample=False)
+                self.train(dataset=dataset, current=input_current, reset_states="sentence")
+
+                fr_old = fr
+                fr = np.mean(self.avg_frate())
+
+                input_rates.append(fr)
+                input_scales.append(input_scale)
+
+                # unscale the weights back
+                self.w["input"][:] *= (1 / input_scale)
+
+                # check if we skipped the taret range
+                if c > 1 and fr_old < targets[0] and fr > targets[1]:
+                    print("Too steep increase. Can't settle in the range. Stopping.")
+                    not_converge = True
+                    break
+                elif c > 1 and fr_old > targets[1] and fr < targets[0]:
+                    print("Too steep descent. Can't settle in the range. Stopping.")
+                    not_converge = True
+                    break
+
+                c += 1
+
+                # Modify input scale
+                if fr < targets[0]:
+                    input_scale += input_step   # increase the scale if below target range
+                elif fr > targets[1]:
+                    input_scale -= input_step    # decrease the scale if above target range
+
+            if not_converge:
+                print("Input tuning did not converge")
+                return
+
+        self.config_input_weights(mean=0.4, density=0.50, seed=1)
+        self.config_recurrent_weights(density=0.1, ex=0.8, seed=2)
+
+        c = 1
+        fr = 0
+        rec_scales = []
+        rec_rates = []
+        not_converge = False
+
+        # use the final value of input_scale
+        self.w["input"][:] *= input_scale
+
+        while fr < targets[2] or fr > targets[3]:
+
+            print("Iteration {:d}".format(c))
+            print("Current average f. rate for N={}: {:f}...".format(self.neurons["N"], fr))
+            print("Tuning recurrent weights for {:f} and input scale {:f}...".format(rec_scale, input_scale))
+            print(rec_scale)
+
+            # scale the input weights
+            self.w["recurrent"][:] *= rec_scale
+
+            self.config_recording(n_neurons=self.neurons["N"], t=parameters.sim["t"], dataset=dataset, downsample=False)
+            self.train(dataset=dataset, current=input_current, reset_states="sentence")
+
+            fr_old = fr
+            fr = np.mean(self.avg_frate())
+
+            rec_rates.append(fr)
+            rec_scales.append(rec_scale)
+
+            # unscale the weights back
+            self.w["recurrent"][:] *= (1 / rec_scale)
+
+            if fr < targets[2]:
+                rec_scale += rec_step  # increase the scale if below target range
+            elif fr > targets[3]:
+                rec_scale -= rec_step  # decrease the scale if above target range
+
+            # check if we skipped the taret range
+            if c > 1 and fr_old < targets[2] and fr > targets[3]:
+                print("Too steep increase. Can't settle in the range. Stopping.")
+                not_converge = True
+                break
+            elif c > 1 and fr_old > targets[3] and fr < targets[2]:
+                print("Too steep descent. Can't settle in the range. Stopping.")
+                not_converge = True
+                break
+
+            c += 1
+
+        if not_converge:
+            print("Recurrent tuning did not converge")
+            return
+
+        self.w["input_scaling"] = input_scale
+        self.w["recurrent_scaling"] = rec_scale
+
+        return input_scale, rec_scale, [input_rates, input_scales], [rec_rates, rec_scales]
