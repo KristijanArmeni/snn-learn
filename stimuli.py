@@ -9,8 +9,8 @@ def generate_sequence(possible_n_inner=None, n_outer=None, seed=None):
     1-2-AX continous performance task as described in Frank et al., 2001
     (doi: 10.3758/CABN.1.2.137).\n
 
-    USE AS
-    sequence, response, out_sequence = generate_sequence(n_inner, n_outer)
+    EXAMPLE USAGE:
+    sequence, response, out_sequence = generate_sequence(possible_n_inner=np.arange(1, 5), n_outer=50, seed=123)
 
     INPUTS
     possible_n_inner = int, maximal number of symbol pairs in inner loops of the sequence, 1:1:n_inner
