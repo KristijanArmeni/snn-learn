@@ -5,23 +5,23 @@ from torch.utils import data
 
 def generate_sequence(possible_n_inner=None, n_outer=None, seed=None):
 
-    """ generate_sequence() creates a sequence of symbols to be used in
+    """ generate_sequence() creates a sequence of symbols and responses for the
     1-2-AX continous performance task as described in Frank et al., 2001
     (doi: 10.3758/CABN.1.2.137).\n
 
     USE AS
-    sequence, response = generate_sequence(n_inner, n_outer)
+    sequence, response, out_sequence = generate_sequence(n_inner, n_outer)
 
     INPUTS
-    n_inner = integer, maximal number of symbol pairs in inner loops of the sequence, 1:1:n_inner
-    n_outer = integer, number of outer loops in the sequence
-    seed    = boolean or int, for deterministic random number generation
+    possible_n_inner = int, maximal number of symbol pairs in inner loops of the sequence, 1:1:n_inner
+    n_outer          = int, number of outer loops in the sequence
+    seed (optional)  = boolean, for deterministic random number generation (default = None)
 
     OUTPUTS
-    sequence = numpy array, final sequence to be used
-    response = boolean array, correct responses to items in the sequence
+    sequence =      numpy array, final sequence to be used
+    response =      boolean array, correct responses to items in the sequence
+    out_sequence =  nd array, output sequence where each element is a symbol pair, useful for checking statistics
     """
-    pass
 
     # Define alphabet
     outer_symbols = ["1", "2"]        # Sampling of outer symbols has equal probability
@@ -118,6 +118,36 @@ def encode_input(sequence):
     return inp
 
 
+def enumerate_sequence(lengths=[1, 4], n_target=100, step=5, seed=95):
+
+    """
+
+    :param n_target:  double, lower bound on the number of symbols in the sequence
+    :param :
+    :return:
+    """
+
+    n_outer = 1
+    n_unique = 0
+    c = 0
+    # generate sequence here
+    while n_unique < n_target:
+
+        n_outer += step
+        c += 1
+
+        print("[{:d}] Trying n = {:d}".format(c, n_outer))
+
+        s, r, s_pairs = generate_sequence(possible_n_inner=lengths, n_outer=n_outer, seed=seed)
+        d = Dataset(sequence=s, response=r, encoding=encode_input(sequence=s))
+
+        seq, rsp, inp = d.segment(return_unique=True, reshape_back=True)
+
+        n_unique = seq.shape[0]
+
+    return seq, rsp, inp, s_pairs, n_outer
+
+
 class Dataset(data.Dataset):
 
     def __init__(self, sequence=None, response=None, encoding=None):
@@ -138,12 +168,34 @@ class Dataset(data.Dataset):
 
         return len(self.sequence)
 
-    def segment(self):
+    def segment(self, return_unique=False, reshape_back=False):
 
         id = np.sort(np.hstack([np.where(self.sequence == "1"), np.where(self.sequence == "2")]))
-        sentmp = np.split(self.sequence, id[0])
+        sentmp = np.split(ary=self.sequence, indices_or_sections=id[0])
+        rsptmp = np.split(ary=self.response, indices_or_sections=id[0])
+        inptmp = np.split(ary=self.encoding, indices_or_sections=id[0], axis=1)
 
         sen = [a.tolist() for a in sentmp]
-        sen.pop(0)
+        rsp = [a.tolist() for a in rsptmp]
+        inp = [a.tolist() for a in inptmp]
 
-        return sen
+        sen.pop(0)
+        rsp.pop(0)
+        inp.pop(0)
+        sen = np.asarray(sen)
+        rsp = np.asarray(rsp)
+        inp = np.asarray(inp)
+
+        if return_unique:
+
+            _, ids = np.unique(sen, return_index=True)
+            sen = sen[np.sort(ids)]
+            rsp = rsp[np.sort(ids)]
+            inp = inp[np.sort(ids), :]
+
+        if reshape_back:
+            sen = np.hstack(sen)
+            rsp = np.hstack(rsp)
+            inp = np.concatenate([np.vstack(a) for a in inp], axis=1)
+
+        return sen, rsp, inp
