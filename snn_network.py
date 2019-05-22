@@ -256,119 +256,114 @@ class SNN(object):
         return out
 
     def rate_tuning(self, parameters, input_current, dataset, input_scale, input_step, rec_scale, rec_step, targets,
-                    skip_input=False):
+                    N_max=25, skip_input=False):
 
-        if not skip_input:
+        params = ["input", "recurrent"]
+        sel = {params[0]: [None, None, None],
+               params[1]: [None, None, None],
+               }
 
-            fr = 0
+        if skip_input:
+            params = ["recurrent"]
+            sel["input"][0] = input_scale
+
+        for target_weights in params:
+
+            f1 = 0
             c = 1
 
-            input_scales = []
-            input_rates = []
-            not_converge = False
+            scales = []
+            rates = []
+            bisect = False
 
-            # disconnect internal connectivity
-            self.w["recurrent"][:] *= 0
+            # create weight matrices
+            self.config_input_weights(mean=0.4, density=0.50, seed=1)
+            self.config_recurrent_weights(density=0.1, ex=0.8, seed=2)
 
-            while fr < targets[0] or fr > targets[1]:
+            # disconnect internal connectivity if tuning input
+            if target_weights == "input":
+                self.w["recurrent"][:] *= 0
+                a = input_scale
+                s = input_step
+                x1 = targets[0]
+                x2 = targets[1]
+            elif target_weights == "recurrent":
+                self.w["input"][:] *= sel["input"][0]  # scale input by the selected value
+                a = rec_scale
+                s = rec_step
+                x1 = targets[2]
+                x2 = targets[3]
 
+            while (f1 < x1 or f1 > x2) and c < N_max:
+
+                print("\n====*****=====")
                 print("[Iteration {:d} (N={:d})]".format(c, self.neurons["N"]))
-                print("Average f. rate: {:f} Hz".format(fr))
-                print("Tuning input weights for {:f}...".format(input_scale))
+                print("Initial f. rate:", round(f1, 3))
+                print("Tuning {} weights with".format(target_weights), a, "scale")
 
                 # scale the input weights
-                self.w["input"][:] *= input_scale
+                self.w[target_weights][:] *= a
 
                 self.config_recording(n_neurons=self.neurons["N"], t=parameters.sim["t"], dataset=dataset, downsample=False)
                 self.train(dataset=dataset, current=input_current, reset_states="sentence")
 
-                fr_old = fr
-                fr = np.mean(self.avg_frate())
+                f0 = f1
+                f1 = np.mean(self.avg_frate())
 
-                input_rates.append(fr)
-                input_scales.append(input_scale)
+                rates.append(f1)
+                scales.append(a)
 
                 # unscale the weights back
-                self.w["input"][:] *= (1 / input_scale)
+                self.w[target_weights][:] *= (1 / a)
 
-                # check if we skipped the taret range
-                if c > 1 and fr_old < targets[0] and fr > targets[1]:
-                    print("Too steep increase. Can't settle in the range. Stopping.")
-                    not_converge = True
-                    break
-                elif c > 1 and fr_old > targets[1] and fr < targets[0]:
-                    print("Too steep descent. Can't settle in the range. Stopping.")
-                    not_converge = True
-                    break
+                print("New average f. rate:", round(f1, 3))
+
+                # check if we skipped the target range, then bisect
+                if c > 1 and not bisect and (f0 < x1 and f1 > x2):
+                    print("Too steep increase. Bisecting.", a, "and", b)
+                    a0 = a
+                    a = (a + b) / 2  # bisect the value
+                    bisect = True
+
+                elif c > 1 and not bisect and (f0 > x2 and f1 < x1):
+                    print("Too steep descent. Bisecting.", a, "and", b)
+                    a0 = a
+                    a = (a + b) / 2
+                    bisect = True
+
+                # bisection results in f(a) to fall below the target range
+                elif bisect and f1 < x1 and f0 > x2:
+                    print("Bisection below the range. Bisecting (a0, a).", a0, "and", a)
+                    a = (a0 + a) / 2  # take the old value as the upper point
+                    bisect = True
+
+                    # bisection results in f(a) to fall below the target range
+                elif bisect and f0 > x2 and f1 > x2:
+                    print("Bisection above the range. Bisecting.", a0, "and", a)
+                    a = (a0 + a) / 2  # take the old value as the upper point
+                    bisect = True
+
+                elif f0 < x1 and f1 < x2:
+                    print("Rates too low. Increasing 'a' by.", s)
+                    b = a   #
+                    a += s  # increase the scale if below target range
+                    bisect = False
+
+                elif f0 > x1 and f1 > x2:
+                    print("Rates too high. Decreasing 'a' by.", s)
+                    b = a
+                    a -= s  # decrease the scale if above target range
+                    bisect = False
 
                 c += 1
 
-                # Modify input scale
-                if fr < targets[0]:
-                    input_scale += input_step   # increase the scale if below target range
-                elif fr > targets[1]:
-                    input_scale -= input_step    # decrease the scale if above target range
+            if c >= N_max:
+                print("{} tuning did not converge".format(target_weights))
+            else:
+                print("{} tuning converged for input scale".format(target_weights), a, "and rate", f1)
+                sel[target_weights][0] = a
 
-            if not_converge:
-                print("Input tuning did not converge")
-                return
+            sel[target_weights][1] = scales
+            sel[target_weights][2] = rates
 
-        self.config_input_weights(mean=0.4, density=0.50, seed=1)
-        self.config_recurrent_weights(density=0.1, ex=0.8, seed=2)
-
-        c = 1
-        fr = 0
-        rec_scales = []
-        rec_rates = []
-        not_converge = False
-
-        # use the final value of input_scale
-        self.w["input"][:] *= input_scale
-
-        while fr < targets[2] or fr > targets[3]:
-
-            print("Iteration {:d}".format(c))
-            print("Current average f. rate for N={}: {:f}...".format(self.neurons["N"], fr))
-            print("Tuning recurrent weights for {:f} and input scale {:f}...".format(rec_scale, input_scale))
-            print(rec_scale)
-
-            # scale the input weights
-            self.w["recurrent"][:] *= rec_scale
-
-            self.config_recording(n_neurons=self.neurons["N"], t=parameters.sim["t"], dataset=dataset, downsample=False)
-            self.train(dataset=dataset, current=input_current, reset_states="sentence")
-
-            fr_old = fr
-            fr = np.mean(self.avg_frate())
-
-            rec_rates.append(fr)
-            rec_scales.append(rec_scale)
-
-            # unscale the weights back
-            self.w["recurrent"][:] *= (1 / rec_scale)
-
-            if fr < targets[2]:
-                rec_scale += rec_step  # increase the scale if below target range
-            elif fr > targets[3]:
-                rec_scale -= rec_step  # decrease the scale if above target range
-
-            # check if we skipped the taret range
-            if c > 1 and fr_old < targets[2] and fr > targets[3]:
-                print("Too steep increase. Can't settle in the range. Stopping.")
-                not_converge = True
-                break
-            elif c > 1 and fr_old > targets[3] and fr < targets[2]:
-                print("Too steep descent. Can't settle in the range. Stopping.")
-                not_converge = True
-                break
-
-            c += 1
-
-        if not_converge:
-            print("Recurrent tuning did not converge")
-            return
-
-        self.w["input_scaling"] = input_scale
-        self.w["recurrent_scaling"] = rec_scale
-
-        return input_scale, rec_scale, [input_rates, input_scales], [rec_rates, rec_scales]
+        return sel
