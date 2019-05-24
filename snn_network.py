@@ -259,15 +259,17 @@ class SNN(object):
                     N_max=25, skip_input=False):
 
         params = ["input", "recurrent"]
-        sel = {params[0]: [None, None, None],
-               params[1]: [None, None, None],
+        sel = {params[0]: [None, None, None, None],
+               params[1]: [None, None, None, None],
                }
 
         if skip_input:
             params = ["recurrent"]
-            sel["input"][0] = input_scale
+            sel["input"][1] = input_scale
 
         for target_weights in params:
+
+            sel[target_weights][0] = self.neurons["N"]  # log network size
 
             f1 = 0
             c = 1
@@ -288,7 +290,7 @@ class SNN(object):
                 x1 = targets[0]
                 x2 = targets[1]
             elif target_weights == "recurrent":
-                self.w["input"][:] *= sel["input"][0]  # scale input by the selected value
+                self.w["input"][:] *= sel["input"][1]  # scale input by the selected value
                 a = rec_scale
                 s = rec_step
                 x1 = targets[2]
@@ -360,10 +362,10 @@ class SNN(object):
             if c >= N_max:
                 print("{} tuning did not converge".format(target_weights))
             else:
-                print("{} tuning converged for input scale".format(target_weights), a, "and rate", f1)
-                sel[target_weights][0] = a
+                print("{} tuning converged for {} scale".format(target_weights, target_weights), a, "and rate", f1)
+                sel[target_weights][1] = a
 
-            sel[target_weights][1] = scales
-            sel[target_weights][2] = rates
+            sel[target_weights][2] = scales
+            sel[target_weights][3] = rates
 
         return sel
