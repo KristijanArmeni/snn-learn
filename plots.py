@@ -15,15 +15,26 @@ def plot_trial(model=None, trial=None, variable=None):
         c.set_label("Voltage (mV)")
     plt.show()
 
-# convenience function for plotting classifier output
-def plot_scores(scores, title=None):
 
-    fig, ax = plt.subplots(1, 3)
+def plot_time(model=None, trial=None, neurons=None, variable=None):
+
+    plt.figure()
+    plt.plot(model.recording[variable][trial-1, :, :].T)
+    plt.xlabel("Time (msec)")
+    plt.ylabel("membrane potential (mV)")
+    plt.title("Trial {}".format(trial))
+    plt.show()
+
+
+# convenience function for plotting classifier output
+def plot_scores(scores, title=None, xlabel=None, ylabel=None):
+
+    fig, ax = plt.subplots(1, len(scores))
     fig.suptitle(title, size=18)
 
     for i, data in enumerate(scores):
 
-        N = data[3]
+        X = data[3]
 
         # compute mean accuracy scores
         train_mean = np.mean(data[1], 1)
@@ -31,18 +42,18 @@ def plot_scores(scores, title=None):
         train_std = np.std(data[1], 1)
         test_std = np.std(data[2], 1)
 
-        ax[i].fill_between(N, train_mean - train_std, train_mean + train_std,
+        ax[i].fill_between(X, train_mean - train_std, train_mean + train_std,
                            alpha=0.1)
-        ax[i].fill_between(N, test_mean - test_std, test_mean + test_std,
+        ax[i].fill_between(X, test_mean - test_std, test_mean + test_std,
                            alpha=0.1)
 
-        ax[i].plot(N, np.mean(data[1], 1), '--o', label='training score')
-        ax[i].plot(N, np.mean(data[2], 1), '--o', label='test score')
+        ax[i].semilogx(X, np.mean(data[1], 1), '--o', label='training score')
+        ax[i].semilogx(X, np.mean(data[2], 1), '--o', label='test score')
 
         ax[i].set_ylim(0, 1.05)
-        ax[i].set_xlim(N[0], N[-1])
-        ax[i].set_xlabel('training set size (num. samples)')
+        ax[i].set_xlim(X[0], X[-1])
+        ax[i].set_xlabel(xlabel)
         if i == 0:
-            ax[i].set_ylabel('average classification accuracy (prop. correct)')
+            ax[i].set_ylabel(ylabel)
         ax[i].set_title(data[0], size=14)
         ax[i].legend(loc='best')
