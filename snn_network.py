@@ -369,3 +369,150 @@ class SNN(object):
             sel[target_weights][3] = rates
 
         return sel
+
+    def rate_tuning2(self, parameters=None, input_current=None, dataset=None,
+                     init_scales=None, targets=None, margins=None, skip_input=False,
+                     N_max=25):
+
+        params = ["input", "recurrent"]
+        sel = {params[0]: [None, None, None, None],
+               params[1]: [None, None, None, None],
+               }
+
+        if skip_input:
+            params = ["recurrent"]
+            # fill in the output dict
+            sel["input"][0] = self.neurons["N"]
+            sel["input"][1] = init_scales[0]
+            sel["input"][2] = "skipped_tuning"
+            sel["input"][3] = "skipped_tuning"
+
+        for i, target_weights in enumerate(params):
+
+            sel[target_weights][0] = self.neurons["N"]  # log network size
+
+            spikeRate = None
+            targetRate = targets[i]
+            margin = margins[i]
+            success = False
+            abort = False
+            c = 0
+            x1 = None
+            x2 = None
+            bisect = False
+
+            resApp = None
+            scales = []
+            rates = []
+
+            # create weight matrices
+            self.config_input_weights(mean=0.4, density=0.50, seed=1)
+            self.config_recurrent_weights(density=0.1, ex=0.8, seed=2)
+
+            # disconnect internal connectivity if tuning input
+            if target_weights == "input":
+                self.w["recurrent"][:] *= 0
+                resApp = init_scales[i]
+                # s = input_step
+
+            elif target_weights == "recurrent":
+                self.w["input"][:] *= sel["input"][1]  # scale input by the selected value
+                resApp = init_scales[i]
+                # s = rec_step
+
+            while not success and not abort:
+
+                c += 1  # increase counter
+
+                if c > N_max:
+                    print("Tuning did not converge.")
+                    abort = True
+
+                print("\n====*****=====")
+                print("[Iteration {:d} (N={:d})]".format(c, self.neurons["N"]))
+                print("Initial f. rate:", spikeRate)
+                if target_weights == "recurrent":
+                    print("Selected input scale: {:.4e}".format(sel["input"][1]))
+                print("Tuning {} weights with {:.4e} scale".format(target_weights, resApp))
+
+                # scale the input weights
+                self.w[target_weights][:] *= resApp
+
+                self.config_recording(n_neurons=self.neurons["N"], t=parameters.sim["t"], dataset=dataset, downsample=False)
+                self.train(dataset=dataset, current=input_current, reset_states="sentence")
+
+                spikeRate0 = spikeRate
+                spikeRate = np.mean(self.avg_frate())
+
+                rates.append(spikeRate)
+                scales.append(resApp)
+
+                # unscale the weights back
+                self.w[target_weights][:] *= (1 / resApp)
+
+                # Determine the starting points (x1, x2) for bisection\
+
+                if (targetRate-margin) < spikeRate < (targetRate+margin):
+
+                    x1 = resApp
+                    x2 = resApp
+
+                    print("Average spike rate good! Spike rate:", spikeRate)
+                    sel[target_weights][1] = resApp
+                    sel[target_weights][2] = scales
+                    sel[target_weights][3] = rates
+                    success = True
+
+                if not bisect and not success:
+
+                    if spikeRate < targetRate:    # we're undershooting, store as x1 and increase resApp
+
+                        print("Spike rate {:f} Hz below targetRate {:f} Hz. ".format(spikeRate, targetRate))
+
+                        x1 = resApp
+
+                        if x2 is None:
+                            resApp *= 1.2
+
+                    else:                         # we're overshooting, store as x2 and increase resApp
+
+                        print("Spike rate {:f} Hz above targetRate {:f} Hz. ".format(spikeRate, targetRate))
+
+                        x2 = resApp
+
+                        if x1 is None:
+                            resApp *= 0.7
+
+                    if (x1 and x2) is not None:
+
+                        bisect = True
+                        print("Found initial values for bisection:")
+                        print("x1 = {:.4e} | x2 = {:.4e}".format(x1, x2))
+
+                if bisect and not success:
+
+                    if spikeRate < (targetRate-margin):
+
+                        x1 = resApp
+
+                    elif spikeRate > (targetRate+margin):
+
+                        x2 = resApp
+
+                    # check if conditions are good
+                    if (targetRate-margin) < spikeRate < (targetRate+margin):
+
+                        print("Bisection for {} weights converged!".format(target_weights))
+                        print("Spike rate:", spikeRate)
+                        print("{} weight:".format(target_weights), resApp)
+                        sel[target_weights][1] = resApp
+                        sel[target_weights][2] = scales
+                        sel[target_weights][3] = rates
+                        success = True
+
+                    else:
+
+                        print("Bisecting x1 = {:.4e} and x2 = {:.4e}".format(x1, x2))
+                        resApp = (x1 + x2)/2
+
+        return sel
