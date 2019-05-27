@@ -1,13 +1,13 @@
 
 import sys
+import numpy as np
+from util import load, save
 from matplotlib import pyplot as plt
 plt.style.use('seaborn-notebook')
-from util import load, save
-import numpy as np
+
+# ===== NETWORK TUNING ===== #
 
 rootdir = "/project/3011085.04/snn/data/figures/"
-
-# ===== LOAD TUNING PARAMETERS
 
 if sys.argv[1] == "tuning":
 
@@ -34,6 +34,7 @@ if sys.argv[1] == "tuning":
     plt.xlabel("iteration nr.")
     plt.legend(loc="best")
 
+    print("Saving {}".format(rootdir + "recurrent_tuning.png"))
     plt.savefig(rootdir + "recurrent_tuning.svg")
     plt.savefig(rootdir + "recurrent_tuning.png")
 
