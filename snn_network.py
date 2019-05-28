@@ -419,8 +419,11 @@ class SNN(object):
                 c += 1  # increase counter
 
                 if c > N_max:
-                    print("Tuning did not converge.")
-                    abort = True
+                    print("{} tuning did not converge.".format(target_weights))
+                    sel[target_weights][1] = np.nan
+                    sel[target_weights][2] = scales
+                    sel[target_weights][3] = rates
+                    return sel
 
                 print("\n====*****=====")
                 print("[Iteration {:d} (N={:d})]".format(c, self.neurons["N"]))
@@ -457,7 +460,7 @@ class SNN(object):
                     sel[target_weights][3] = rates
                     success = True
 
-                if not bisect and not success:
+                if not bisect and not success and not abort:
 
                     if spikeRate < targetRate:    # we're undershooting, store as x1 and increase resApp
 
@@ -483,7 +486,7 @@ class SNN(object):
                         print("Found initial values for bisection:")
                         print("x1 = {:.4e} | x2 = {:.4e}".format(x1, x2))
 
-                if bisect and not success:
+                if bisect and not success and not abort:
 
                     if spikeRate < (targetRate-margin):
 
@@ -508,5 +511,9 @@ class SNN(object):
 
                         print("Bisecting x1 = {:.4e} and x2 = {:.4e}".format(x1, x2))
                         resApp = (x1 + x2)/2
+
+            sel[target_weights][1] = resApp
+            sel[target_weights][2] = scales
+            sel[target_weights][3] = rates
 
         return sel
