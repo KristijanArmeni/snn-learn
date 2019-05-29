@@ -42,10 +42,6 @@ for N in sizes:
     print("Tuning network with N = {}".format(N))
 
     net = SNN(params=parameters, n_neurons=N, input_dim=8, output_dim=2, syn_adapt=True)
-    net.config_input_weights(mean=0.4, density=0.50, seed=55)
-    net.config_recurrent_weights(density=0.1, ex=0.8, seed=155)
-
-    # ===== INPUT CURRENT ===== #
 
     # Configure recording matrices
     net.config_recording(n_neurons=net.neurons["N"], t=parameters.sim["t"], dataset=tmp, downsample=False)
@@ -53,16 +49,16 @@ for N in sizes:
 
     if version == "rate_tuning":
         sel = net.rate_tuning(parameters=parameters, input_current=step, dataset=tmp,
-                              input_scale=2.3, input_step=0.1,
+                              input_scale=1.4, input_step=0.1,
                               rec_scale=1e-9, rec_step=0.2e-9,
                               targets=[1.8, 2.2, 4.5, 5.5],
-                              N_max=50, skip_input=False)
+                              N_max=25, skip_input=False)
 
     elif version == "rate_tuning2":
 
         sel = net.rate_tuning2(parameters=parameters, input_current=step, dataset=tmp,
-                               init_scales=[2.3, 1e-9],
+                               init_scales=[1.4, 1e-9],
                                targets=[2, 5], margins=[0.2, 0.5],
-                               N_max=50, skip_input=False)
+                               N_max=25, skip_input=False)
 
     save(sel, sys.argv[4] + "/" + "tuning-{}".format(N))
