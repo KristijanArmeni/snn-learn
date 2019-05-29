@@ -30,11 +30,11 @@ class SNN(object):
         # for storing output states
         self.recording = dict.fromkeys(["V", "t_orig", "t", "gsra", "gref", "spikes", "labels", "downsample"])
 
-    def __call__(self, I_in, dt):
+    def __call__(self, I_in, states, dt):
 
-        V, spikes, spike_count, gsra, gref = self.forward(self, I_in=I_in, dt=dt)
+        V, spikes, spike_count, gsra, gref, I_rec = self.forward(self, I_in, states, dt)
 
-        return V, spikes, spike_count, gsra, gref
+        return V, spikes, spike_count, gsra, gref, I_rec
 
     def config_input_weights(self, mean=0.4, density=0.05, seed=None):
 
@@ -400,8 +400,8 @@ class SNN(object):
             rates = []
 
             # create weight matrices
-            self.config_input_weights(mean=0.4, density=0.50, seed=1)
-            self.config_recurrent_weights(density=0.1, ex=0.8, seed=2)
+            self.config_input_weights(mean=0.4, density=0.5, seed=55)
+            self.config_recurrent_weights(density=0.1, ex=0.8, seed=155)
 
             # disconnect internal connectivity if tuning input
             if target_weights == "input":
