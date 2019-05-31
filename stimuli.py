@@ -118,7 +118,7 @@ def encode_input(sequence):
     return inp
 
 
-def enumerate_sequence(lengths=[1, 4], n_target=100, step=5, seed=95):
+def enumerate_sequence(lengths=(1, 4), n_target=100, step=5, seed=95):
 
     """
 
@@ -139,22 +139,24 @@ def enumerate_sequence(lengths=[1, 4], n_target=100, step=5, seed=95):
         print("[{:d}] Trying n = {:d}".format(c, n_outer))
 
         s, r, s_pairs = generate_sequence(possible_n_inner=lengths, n_outer=n_outer, seed=seed)
-        d = Dataset(sequence=s, response=r, encoding=encode_input(sequence=s))
+        d = Dataset(sequence=s, response=r, encoding=encode_input(sequence=s), pairs=s_pairs)
 
-        seq, rsp, inp = d.segment(return_unique=True, reshape_back=True)
+        seq, rsp, inp, pairs = d.segment(return_unique=True, reshape_back=True)
 
-        n_unique = seq.shape[0]
+        n_unique = seq.shape[0]  # number of symbols when sentences are unique
+        print("Number of symbols:{}".format(n_unique))
 
-    return seq, rsp, inp, s_pairs, n_outer
+    return seq, rsp, inp, pairs, n_outer
 
 
 class Dataset(data.Dataset):
 
-    def __init__(self, sequence=None, response=None, encoding=None):
+    def __init__(self, sequence=None, response=None, encoding=None, pairs=None):
 
         self.sequence = sequence
         self.response = response
         self.encoding = encoding
+        self.pairs = pairs
 
     def __getitem__(self, index):
 
@@ -171,31 +173,40 @@ class Dataset(data.Dataset):
     def segment(self, return_unique=False, reshape_back=False):
 
         id = np.sort(np.hstack([np.where(self.sequence == "1"), np.where(self.sequence == "2")]))
+        id_pairs = np.sort(np.hstack([np.where(self.pairs == "1"), np.where(self.pairs == "2")]))
+
         sentmp = np.split(ary=self.sequence, indices_or_sections=id[0])
         rsptmp = np.split(ary=self.response, indices_or_sections=id[0])
         inptmp = np.split(ary=self.encoding, indices_or_sections=id[0], axis=1)
+        pairstmp = np.split(ary=self.pairs, indices_or_sections=id_pairs[0])
 
         sen = [a.tolist() for a in sentmp]
         rsp = [a.tolist() for a in rsptmp]
         inp = [a.tolist() for a in inptmp]
+        pairs = [a.tolist() for a in pairstmp]
 
         sen.pop(0)
         rsp.pop(0)
         inp.pop(0)
+        pairs.pop(0)
+
         sen = np.asarray(sen)
         rsp = np.asarray(rsp)
         inp = np.asarray(inp)
+        pairs = np.asarray(pairs)
 
         if return_unique:
 
             _, ids = np.unique(sen, return_index=True)
             sen = sen[np.sort(ids)]
             rsp = rsp[np.sort(ids)]
+            pairs = pairs[np.sort(ids)]
             inp = inp[np.sort(ids), :]
 
         if reshape_back:
             sen = np.hstack(sen)
             rsp = np.hstack(rsp)
+            pairs = np.hstack(pairs)
             inp = np.concatenate([np.vstack(a) for a in inp], axis=1)
 
-        return sen, rsp, inp
+        return sen, rsp, inp, pairs
