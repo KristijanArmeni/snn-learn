@@ -26,6 +26,7 @@ class SNN(object):
         self.syn = params.syn  # synaptic parameters
         self.gsra = params.gsra  # spike-rate adaptation
         self.gref = params.gref  # refractory conductance
+        self.wscale = params.wscale  # for storing global scaling params
 
         # for storing output states
         self.recording = dict.fromkeys(["V", "t_orig", "t", "gsra", "gref", "spikes", "labels", "downsample"])
@@ -84,7 +85,7 @@ class SNN(object):
         self.recording["gref"] = np.zeros((len(dataset.sequence), n_neurons, len(t)))
         self.recording["t_orig"] = t_orig
         self.recording['t'] = t
-        self.recording["spikes"] = np.zeros((len(dataset.sequence), n_neurons, len(t)), dtype=bool)
+        self.recording["spikes"] = np.zeros((len(dataset.sequence), n_neurons, len(t_orig)), dtype=bool)
         self.recording["count"] = np.zeros((len(dataset.sequence), n_neurons))
         self.recording["axes"] = ["neuron_nr", "time", "trial_nr"]
         self.recording["downsample"] = downsample
@@ -158,14 +159,6 @@ class SNN(object):
 
         spike_count = np.sum(spikes, axis=1)
 
-        # Downsample the recording if needed
-        if self.recording["downsample"] is not False:
-
-            V = V[:, ::self.recording["downsample"]]
-            spikes = spikes[:, ::self.recording["downsample"]]
-            gsra = gsra[:, ::self.recording["downsample"]]
-            gref = gref[:, ::self.recording["downsample"]]
-
         return V, spikes, spike_count, gsra, gref, I_rec
 
     def train(self, dataset, current, reset_states="sentence"):
@@ -202,12 +195,20 @@ class SNN(object):
 
             V, spikes, count, gsra, gref, I_rec = self.forward(I_in=I_in, states=states, dt=dt)
 
-            # store the states of dynamic variable and take them to the next stimulation
+            # store the states of dynamic variables and take them to the next stimulation
             states["V"] = V[:, -1]
             states["I_rec"] = I_rec[:, -1]
             states["gsra"] = gsra[:, -1]
             states["gref"] = gref[:, -1]
             states["spikes"] = spikes[:, -1]
+
+            # Downsample the recording if needed
+            if self.recording["downsample"]:
+
+                # dwonsample dynamic variables
+                self.recording["V"][i, :, :] = V[:, ::self.recording["downsample"]]
+                self.recording["gsra"][i, :, :] = gsra[:, ::self.recording["downsample"]]
+                self.recording["gref"][i, :, :] = gref[:, ::self.recording["downsample"]]
 
             # store total recordings for output
             self.recording["V"][i, :, :] = V
@@ -399,14 +400,14 @@ class SNN(object):
             scales = []
             rates = []
 
-            # create weight matrices
+            # create weight anew prior to tuning
             self.config_input_weights(mean=0.4, density=0.5, seed=55)
             self.config_recurrent_weights(density=0.1, ex=0.8, seed=155)
 
-            # disconnect internal connectivity if tuning input
+            # disconnect internal connectivity if tuning input weights
             if target_weights == "input":
                 self.w["recurrent"][:] *= 0
-                resApp = init_scales[i]
+                resApp = init_scales[i]      # starting value for tuning
                 # s = input_step
 
             elif target_weights == "recurrent":
@@ -438,7 +439,6 @@ class SNN(object):
                 self.config_recording(n_neurons=self.neurons["N"], t=parameters.sim["t"], dataset=dataset, downsample=False)
                 self.train(dataset=dataset, current=input_current, reset_states="sentence")
 
-                spikeRate0 = spikeRate
                 spikeRate = np.mean(self.avg_frate())
 
                 rates.append(spikeRate)
@@ -454,6 +454,7 @@ class SNN(object):
                     x1 = resApp
                     x2 = resApp
 
+                    print("{} tuning done. Scaling parameter:".format(target_weights), resApp)
                     print("Average spike rate good! Spike rate:", spikeRate)
                     sel[target_weights][1] = resApp
                     sel[target_weights][2] = scales
@@ -512,6 +513,7 @@ class SNN(object):
                         print("Bisecting x1 = {:.4e} and x2 = {:.4e}".format(x1, x2))
                         resApp = (x1 + x2)/2
 
+            self.wscale[target_weights] = resApp
             sel[target_weights][1] = resApp
             sel[target_weights][2] = scales
             sel[target_weights][3] = rates
