@@ -163,7 +163,7 @@ class SNN(object):
 
     def train(self, dataset, current, reset_states="sentence"):
 
-        dt = self.recording["t"][1]-self.recording["t"][0]  # infer time step
+        dt = self.recording["t_orig"][1]-self.recording["t_orig"][0]  # infer simulation time step
 
         # create dict for storing dynamic variables
         states = dict.fromkeys(["V", "I_rec", "gsra", "gref"])
@@ -210,12 +210,14 @@ class SNN(object):
                 self.recording["gsra"][i, :, :] = gsra[:, ::self.recording["downsample"]]
                 self.recording["gref"][i, :, :] = gref[:, ::self.recording["downsample"]]
 
+            else:
+                self.recording["V"][i, :, :] = V
+                self.recording["gsra"][i, :, :] = gsra
+                self.recording["gref"][i, :, :] = gref
+
             # store total recordings for output
-            self.recording["V"][i, :, :] = V
             self.recording["spikes"][i, :, :] = spikes
             self.recording["count"][i, :] = count
-            self.recording["gsra"][i, :, :] = gsra
-            self.recording["gref"][i, :, :] = gref
 
     def avg_frate(self, stim_time=0.05):
 
