@@ -367,7 +367,7 @@ class SNN(object):
 
         return sel
 
-    def rate_tuning2(self, parameters=None, input_current=None, dataset=None,
+    def rate_tuning2(self, parameters=None, input_current=None, reset_states="sentence", dataset=None,
                      init_scales=None, targets=None, margins=None, skip_input=False,
                      N_max=25):
 
@@ -439,7 +439,7 @@ class SNN(object):
                 self.w[target_weights][:] *= resApp
 
                 self.config_recording(n_neurons=self.neurons["N"], t=parameters.sim["t"], dataset=dataset, downsample=False)
-                self.train(dataset=dataset, current=input_current, reset_states="sentence")
+                self.train(dataset=dataset, current=input_current, reset_states=reset_states)
 
                 spikeRate = np.mean(self.avg_frate())
 
