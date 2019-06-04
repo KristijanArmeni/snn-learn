@@ -23,4 +23,5 @@ class Paths(object):
         self.home = "/project/3011085.04/snn"
         self.raw = self.home + "/data/raw"
         self.interim = self.home + "/data/interim"
-        self.results = self.home + "/data/figures"
+        self.results = self.home + "/data/results"
+        self.figures = self.home + "/data/figures"
