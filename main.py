@@ -134,7 +134,7 @@ elif sys.argv[1] == "gsra-effect":
 
             print(net.wscale["input"], net.wscale["recurrent"])
 
-            print("[{:d}] Running network of N = {} with tau_gsra = {:f}".format(k, N, tau_gsra))
+            print("\n[{:d}] Running network of N = {} with tau_gsra = {:f}".format(k, N, tau_gsra))
 
             net.config_input_weights(mean=0.4, density=0.50, seed=55)
             net.config_recurrent_weights(density=0.1, ex=0.8, seed=155)
@@ -145,7 +145,7 @@ elif sys.argv[1] == "gsra-effect":
 
             net.train(dataset=full_ds, current=step, reset_states=reset)
 
-            print("Mean firing rate:", np.mean(net.avg_frate()))
+            print("\nMean firing rate:", np.mean(net.avg_frate()))
 
             # Run averaging over selected temporal windows
             print("Averaging ...")
