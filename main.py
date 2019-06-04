@@ -99,7 +99,7 @@ if sys.argv[1] == "exploratory":
 
 elif sys.argv[1] == "gsra-effect":
 
-    tuning_ds = Dataset(sequence=ds[0:300][0], response=ds[0:300][1], encoding=ds[0:300][2])
+    tuning_ds = Dataset(sequence=ds[0:500][0], response=ds[0:500][1], encoding=ds[0:500][2])
     full_ds = Dataset(sequence=ds[2000::][0], response=ds[2000::][1], encoding=ds[2000::][2])
 
     resetting = ["sentence", None]
@@ -114,20 +114,25 @@ elif sys.argv[1] == "gsra-effect":
 
     net = SNN(params=parameters, n_neurons=1000, input_dim=8, output_dim=2, syn_adapt=True)
 
-    print("\n=====Tuning the network=====")
-    net.rate_tuning2(parameters=parameters, input_current=step, dataset=tuning_ds, # creates values in net.wscale
-                     init_scales=[1.4, 1e-9],
-                     targets=[2, 5], margins=[0.2, 0.5],
-                     N_max=25, skip_input=False)
-
     # preallocate array
     x = np.ndarray(shape=(len(values), len(time_windows), full_ds.sequence.shape[0], N))
-
-    print(net.wscale["input"], net.wscale["recurrent"])
 
     for k, reset in enumerate(resetting):
 
         for j, tau_gsra in enumerate(values):
+
+            print("\n=====Tuning the network [N = {}, tau = {}]=====".format(N, tau_gsra))
+
+            # set the gsra and tune the network
+            net.gsra["tau"] = tau_gsra
+
+            # creates values in net.wscale to be used below
+            net.rate_tuning2(parameters=parameters, input_current=step, reset_states=reset, dataset=tuning_ds,
+                             init_scales=[1.4, 1e-9],
+                             targets=[2, 5], margins=[0.2, 0.5],
+                             N_max=25, skip_input=False)
+
+            print(net.wscale["input"], net.wscale["recurrent"])
 
             print("[{:d}] Running network of N = {} with tau_gsra = {:f}".format(k, N, tau_gsra))
 
@@ -135,7 +140,6 @@ elif sys.argv[1] == "gsra-effect":
             net.config_recurrent_weights(density=0.1, ex=0.8, seed=155)
             net.config_recording(n_neurons=N, t=parameters.sim["t"], dataset=full_ds, downsample=5)
 
-            net.gsra["tau"] = tau_gsra
             net.w["input"] *= net.wscale["input"]
             net.w["recurrent"] *= net.wscale["recurrent"]
 
@@ -144,6 +148,7 @@ elif sys.argv[1] == "gsra-effect":
             print("Mean firing rate:", np.mean(net.avg_frate()))
 
             # Run averaging over selected temporal windows
+            print("Averaging ...")
             for i, toi in enumerate(time_windows):
                 x[j, i, :, :] = net.avg_states(toi=toi)  # average membrane voltage
 
