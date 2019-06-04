@@ -114,10 +114,15 @@ elif sys.argv[1] == "gsra-effect":
 
     net = SNN(params=parameters, n_neurons=1000, input_dim=8, output_dim=2, syn_adapt=True)
 
-    # preallocate array
-    x = np.ndarray(shape=(len(values), len(time_windows), full_ds.sequence.shape[0], N))
-
     for k, reset in enumerate(resetting):
+
+        # preallocate array for storing states
+        x = np.ndarray(shape=(len(values), len(time_windows), full_ds.sequence.shape[0], N))
+
+        # variable for storing tuning parameters
+        r = {"appInn": np.ndarray(shape=len(values,)),
+             "appRec": np.ndarray(shape=len(values,)),
+             "fRate": np.ndarray(shape=(len(values), N))}
 
         for j, tau_gsra in enumerate(values):
 
@@ -133,6 +138,9 @@ elif sys.argv[1] == "gsra-effect":
                              N_max=25, skip_input=False)
 
             print(net.wscale["input"], net.wscale["recurrent"])
+            # store these params for later on
+            r["appInn"][j] = net.wscale["input"]
+            r["appRec"][j] = net.wscale["recurrent"]
 
             print("\n[{:d}] Running network of N = {} with tau_gsra = {:f}".format(k, N, tau_gsra))
 
@@ -145,10 +153,11 @@ elif sys.argv[1] == "gsra-effect":
 
             net.train(dataset=full_ds, current=step, reset_states=reset)
 
-            print("\nMean firing rate:", np.mean(net.avg_frate()))
+            r["fRate"][j, :] = net.avg_frate()
+            print("\nMean firing rate:", np.mean(r["fRate"][:]))
 
             # Run averaging over selected temporal windows
-            print("Averaging ...")
+            print("\nAveraging ...")
             for i, toi in enumerate(time_windows):
                 x[j, i, :, :] = net.avg_states(toi=toi)  # average membrane voltage
 
@@ -159,3 +168,4 @@ elif sys.argv[1] == "gsra-effect":
             suffix = "noreset"
 
         np.save(file=dirs.interim + "/states-{}_{}_tau".format(N, suffix), arr=x)
+        save(r, dirs.raw + "/tuning-{}_{}_tau".format(N, suffix))
