@@ -92,7 +92,6 @@ class SNN(object):
 
     def forward(self, I_in, states, dt):
         """
-
         .forward()
 
         :param I_in:
@@ -101,7 +100,6 @@ class SNN(object):
         :return: V
         :return:
         """
-
 
         # Initialize local versions of variables
         samples = len(self.sim["t"])     # simulate with original high sample time axis
@@ -138,6 +136,9 @@ class SNN(object):
         else:
             c = 0
 
+        alpha_gsra = np.exp(-dt/tau_gsra)
+        alpha_gref = np.exp(-dt/tau_gref)
+
         # Stimulation loop (start indexing from 1)
         for k in np.arange(1, samples):
 
@@ -146,8 +147,8 @@ class SNN(object):
                 V[fired, k-1] = self.memb["V_reset"]
 
             # gsra and gref decay
-            gsra[:, k] = gsra[:, k-1] * (1 - (dt/tau_gsra))
-            gref[:, k] = gref[:, k-1] * (1 - (dt/tau_gref))
+            gsra[:, k] = gsra[:, k-1] * alpha_gsra
+            gref[:, k] = gref[:, k-1] * alpha_gref
 
             # Integrate voltage change
             dV = dt/tau * (E - V[:, k-1]) + \
