@@ -66,10 +66,20 @@ class Params(object):
 
     @staticmethod
     def step_current(t, on, off, amp):
+        """
 
-        I = np.zeros((len(t),))
-        onind = np.where(t == on)[0]
-        offind = np.where(t == off)[0]
+        step_current(t, on, off, amp) creates a step current for the duration
+        of t, starting at timepoint on, ending at off with the strength of amp
+
+        :param t:    1d array, time axis defining simulation length
+        :param on:   scalar, time point when the current is applied
+        :param off:  scalar, time point defining when the current injection is turned off
+        :param amp:  scalar, strength of the input current for the stimulation period
+        :return: I   1d array, input current time-series
+        """
+        I = np.zeros((len(t),))              # create empty output array
+        onind = (np.abs(t - on)).argmin()    # define onset
+        offind = (np.abs(t - off)).argmin()  # find offset
 
         I[onind[0]:(offind[0]+1)] = amp
 
