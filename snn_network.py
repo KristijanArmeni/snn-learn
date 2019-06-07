@@ -219,16 +219,24 @@ class SNN(object):
             self.recording["spikes"][i, :, :] = spikes
             self.recording["count"][i, :] = count
 
-    def avg_frate(self, stim_time=0.05):
+    def avg_frate(self, stim_time=0.05, samples=None):
 
-        n_trl = self.recording["count"].shape[0]
+        if samples is None or samples == "all":
+            n_trl = self.recording["count"].shape[0]
+            samples = np.arange(0, n_trl)
+        else:
+            n_trl = self.recording["count"][samples, :].shape[0]
+
+        print("\nComputing firing rate over {} samples, from sample nr. {} to {}".format(n_trl, samples[0], samples[-1]))
 
         total_time = n_trl * stim_time                          # total time (in sec)
-        total_spikes = np.sum(self.recording["count"], axis=0)  # total number of spikes
+        total_spikes = np.sum(self.recording["count"][samples, :], axis=0)  # total number of spikes
 
-        frate = total_spikes / total_time  # firing rate per neuron
+        firing_rate = total_spikes / total_time  # firing rate per neuron
 
-        return frate
+        print("Firing rate of {} Hz over window {:.1f} seconds ({:d} samples)".format(np.mean(firing_rate), total_time, n_trl))
+
+        return firing_rate
 
     def avg_states(self, toi=None):
 
@@ -369,7 +377,7 @@ class SNN(object):
 
     def rate_tuning2(self, parameters=None, input_current=None, reset_states="sentence", dataset=None,
                      init_scales=None, targets=None, margins=None, skip_input=False,
-                     N_max=25):
+                     warmup=False, warmup_size=None, N_max=25):
 
         params = ["input", "recurrent"]
         sel = {params[0]: [None, None, None, None],
@@ -423,13 +431,15 @@ class SNN(object):
 
                 if c > N_max:
                     print("{} tuning did not converge.".format(target_weights))
+                    self.wscale[target_weights] = resApp
                     sel[target_weights][1] = np.nan
                     sel[target_weights][2] = scales
                     sel[target_weights][3] = rates
                     return sel
 
                 print("\n====*****=====")
-                print("[Iteration {:d} (N={:d})]".format(c, self.neurons["N"]))
+                print("[Iteration {:d} (N={:d}), warmup = {}, warmup_size={:d} %]".format(c, self.neurons["N"],
+                                                                                        warmup, int(warmup_size*100)))
                 print("Initial f. rate:", spikeRate)
                 if target_weights == "recurrent":
                     print("Selected input scale: {:.4e}".format(sel["input"][1]))
@@ -441,7 +451,15 @@ class SNN(object):
                 self.config_recording(n_neurons=self.neurons["N"], t=parameters.sim["t"], dataset=dataset, downsample=False)
                 self.train(dataset=dataset, current=input_current, reset_states=reset_states)
 
-                spikeRate = np.mean(self.avg_frate())
+                if warmup:  # only measure avg rate from a sample point later in simulation
+                    begin_spl = int(round(dataset.sequence.shape[0]*warmup_size))  # start averging at this sample point
+                    end_spl = dataset.sequence.shape[0]               # average until the final sample
+                else:
+                    begin_spl = 0
+                    end_spl = dataset.sequence.shape[0]
+
+                # spikeRate = self.
+                spikeRate = np.mean(self.avg_frate(stim_time=0.05, samples=np.arange(begin_spl, end_spl)))
 
                 rates.append(spikeRate)
                 scales.append(resApp)
@@ -471,7 +489,9 @@ class SNN(object):
 
                         x1 = resApp
 
-                        if x2 is None:
+                        if x2 is None and target_weights == "recurrent":
+                            resApp += 0.1e-9
+                        elif x2 is None and target_weights == "input":
                             resApp *= 1.2
 
                     else:                         # we're overshooting, store as x2 and increase resApp
