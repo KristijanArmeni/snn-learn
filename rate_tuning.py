@@ -61,4 +61,5 @@ for N in sizes:
                                targets=[2, 5], margins=[0.2, 0.5],
                                N_max=25, skip_input=False)
 
+    save(net, sys.argv[4] + "/" + "net-tuning-{}".format(N))
     save(sel, sys.argv[4] + "/" + "tuning-{}".format(N))
