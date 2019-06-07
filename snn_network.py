@@ -21,7 +21,7 @@ class SNN(object):
                   "recurrent_scaling": 0}
 
         # parameters
-        self.task = params.task
+        self.sim = params.sim
         self.memb = params.memb  # membrane parameters
         self.syn = params.syn  # synaptic parameters
         self.gsra = params.gsra  # spike-rate adaptation
@@ -91,6 +91,17 @@ class SNN(object):
         self.recording["downsample"] = downsample
 
     def forward(self, I_in, states, dt):
+        """
+
+        .forward()
+
+        :param I_in:
+        :param states:
+        :param dt:
+        :return: V
+        :return:
+        """
+
 
         # Initialize local versions of variables
         samples = len(self.recording["t_orig"])     # simulate with original high sample time axis
@@ -162,11 +173,18 @@ class SNN(object):
         return V, spikes, spike_count, gsra, gref, I_rec
 
     def train(self, dataset, current, reset_states="sentence"):
+        """
+
+        :param dataset: subclass of pyTorch Dataset class, needs to have fields .sequence, .encoding, .response
+        :param current: 1d array, input current applied on every trial
+        :param reset_states: dict, containing initial conditions for simulation on each trial
+        :return:
+        """
 
         dt = self.recording["t_orig"][1]-self.recording["t_orig"][0]  # infer simulation time step
 
         # create dict for storing dynamic variables
-        states = dict.fromkeys(["V", "I_rec", "gsra", "gref"])
+        states = dict.fromkeys(["V", "I_rec", "gsra", "gref", "spikes"])
 
         states["V"] = np.zeros(self.neurons["N"],)
         states["I_rec"] = np.zeros(self.neurons["N"],)
@@ -178,6 +196,7 @@ class SNN(object):
         for i in tqdm(range(len(dataset.sequence))):
             # print('Trial {:d}'.format(i))
 
+            # project the stimulus onto the network
             stimulated_neurons = self.w["input"] @ dataset.encoding[:, i]
             I_in = np.outer(stimulated_neurons, current)
 
