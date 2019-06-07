@@ -226,3 +226,40 @@ elif sys.argv[1] == "adaptation-curve":
                 scores.append(accuracy)
 
             save(scores, p.results + "/scores-1000-{}-{}.pkl".format(key_x, key_y))
+
+elif sys.argv[1] == "no-adaptation":
+
+    # load data; shape = (tau, time_window, trial, neuron)
+    x_r = np.load(p.interim + "/states-1000_reset_noadapt.npy")
+
+    states = {"reset": x_r}
+    responses = {"observed": y_rsp[2000::], "permuted": y_rsp0[2000::]}
+
+    scaler = StandardScaler()
+    logit = LogisticRegression(fit_intercept=True, C=1.0, max_iter=300, class_weight="balanced",
+                               solver="newton-cg", penalty="l2")
+
+    # loop over conditions
+    for i, key_x in enumerate(states):
+
+        # choose the first time window
+        x = states[key_x][:, 0, :, :]  # x.shape = (tau, n_samples, n_neurons)
+
+        # loop over y labels
+        for h, key_y in enumerate(responses):
+
+            # choose the samples corresponding to the test set
+            y = responses[key_y]  # shape = (n_samples,)
+            scores = []
+
+            # loop over tau values
+            for j in range(x.shape[0]):
+
+                print("\nRunning states with {}, {} labels and tau iteration {:d}".format(key_x, key_y, j))
+
+                x_norm = scaler.fit_transform(X=x[j, :, :])  # shape=(n_samples, n_features)
+
+                accuracy = cross_val_score(estimator=logit, X=x_norm, y=y, cv=5, scoring="balanced_accuracy")
+                scores.append(accuracy)
+
+            save(scores, p.results + "/scores-1000-{}-{}-noadapt.pkl".format(key_x, key_y))
