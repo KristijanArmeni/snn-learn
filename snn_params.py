@@ -81,7 +81,7 @@ class Params(object):
         onind = (np.abs(t - on)).argmin()    # define onset
         offind = (np.abs(t - off)).argmin()  # find offset
 
-        I[onind[0]:(offind[0]+1)] = amp
+        I[onind:(offind+1)] = amp
 
         return I
 
