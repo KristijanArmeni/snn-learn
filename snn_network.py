@@ -104,7 +104,7 @@ class SNN(object):
 
 
         # Initialize local versions of variables
-        samples = len(self.recording["t_orig"])     # simulate with original high sample time axis
+        samples = len(self.sim["t"])     # simulate with original high sample time axis
         n = self.neurons["N"]                       # number of neurons
 
         I_rec = np.zeros((n, samples))              # recurrent input
