@@ -44,7 +44,7 @@ Wr = []
 for i, l in enumerate(p):
     Wr.append(l["recurrent"][1])
 
-if sys.argv[0] == "demo-neuron":
+if sys.argv[1] == "demo-neuron":
 
     # Initialize parameters
     parameters = Params(tmin=0, tmax=0.7, tau_gsra=0.4, tau_gref=0.002)
