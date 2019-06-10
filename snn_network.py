@@ -241,7 +241,7 @@ class SNN(object):
 
     def avg_frate(self, stim_time=0.05, samples=None):
 
-        if samples is None or samples == "all":
+        if samples is None:
             n_trl = self.recording["count"].shape[0]
             samples = np.arange(0, n_trl)
         else:
@@ -304,8 +304,8 @@ class SNN(object):
             bisect = False
 
             # create weight matrices
-            self.config_input_weights(mean=0.4, density=0.50, seed=1)
-            self.config_recurrent_weights(density=0.1, ex=0.8, seed=2)
+            self.config_input_weights(mean=0.4, density=0.50)
+            self.config_recurrent_weights(density=0.1, ex=0.8)
 
             # disconnect internal connectivity if tuning input
             if target_weights == "input":
