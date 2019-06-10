@@ -48,11 +48,6 @@ class Params(object):
             "delta_g": kwargs.get("delta_syn", 10e-9)
             }
 
-        self.wscale = {
-            "input": None,
-            "recurrent": None
-        }
-
         self.data = dict.fromkeys(["train", "validate", "test"])
         self.inp_cur = dict.fromkeys(["I_amp", "t_on", "t_off", "type"])
 
