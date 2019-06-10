@@ -19,7 +19,7 @@ dirs = Paths()
 
 parameters = Params(tmin=0, tmax=0.05)
 
-# ===== TRAIN DATASET ===== #
+# ===== LOAD THE DATASET ===== #
 
 print("Loading stimuli...")
 ds = load(dirs.raw + "/12ax-12k.pkl")
@@ -44,7 +44,48 @@ Wr = []
 for i, l in enumerate(p):
     Wr.append(l["recurrent"][1])
 
-if sys.argv[1] == "exploratory":
+if sys.argv[0] == "demo-neuron":
+
+    # Initialize parameters
+    parameters = Params(tmin=0, tmax=0.7, tau_gsra=0.4, tau_gref=0.002)
+    # vars(parameters)  # show the contents
+
+    # create a step current
+    step = parameters.step_current(t=parameters.sim["t"], on=0.2, off=0.5, amp=2.5e-9)
+    step = step[np.newaxis, :]  # make sure step has an extra dimension corresponding to the number of neurons
+
+    # initialize a network consisting of a single neuron
+    net = SNN(params=parameters, n_neurons=1, input_dim=1, output_dim=2)
+
+    # configure weight matrices
+    # net.config_input_weights(mean=0.4, density=0.50, seed=1)
+    net.config_recurrent_weights(density=1, ex=1, seed=2)
+    net.w["recurrent"] *= 0
+
+    # configure initial conditions
+    states = dict.fromkeys(["V", "I_rec", "gsra", "gref", "spikes"])
+    states["V"] = np.zeros(net.neurons["N"],)
+    states["I_rec"] = np.zeros(net.neurons["N"],)
+    states["gsra"] = np.zeros(net.neurons["N"],)
+    states["gref"] = np.zeros(net.neurons["N"],)
+    states["spikes"] = np.zeros(net.neurons["N"], dtype=bool)
+
+    states["V"][0] = -0.07  # start from resting membrane potential
+    states["I_rec"][0] = 0
+
+    net.gsra["tau"] = 0.04
+
+    V, spikes, count, gsra, gref, I_rec = net.forward(I_in=step, states=states, dt=parameters.sim["dt"])
+
+    # store the variables
+    save(V, dirs.raw + "/membrane_demo.pkl")
+    save(spikes, dirs.raw + "/spikes_demo.pkl")
+    save(I_rec, dirs.raw + "/Irec_demo.pkl")
+    save(gref, dirs.raw + "/gref_demo.pkl")
+    save(gsra, dirs.raw + "/gsra_demo.pkl")
+
+
+if sys.argv[1] == "development":
 
     # define time windows
     tois = [[0, 0.05], [0, 0.01], [0.01, 0.02], [0.02, 0.03], [0.03, 0.04], [0.04, 0.05]]
@@ -97,75 +138,99 @@ if sys.argv[1] == "exploratory":
 
 # ===== VARY SYNAPTIC TIME CONSTANT ===== #
 
-elif sys.argv[1] == "gsra-effect":
+elif sys.argv[1] == "main-simulation":
 
-    tuning_ds = Dataset(sequence=ds[0:500][0], response=ds[0:500][1], encoding=ds[0:500][2])
+    tuning_ds = Dataset(sequence=ds[0:1000][0], response=ds[0:1000][1], encoding=ds[0:1000][2])
     full_ds = Dataset(sequence=ds[2000::][0], response=ds[2000::][1], encoding=ds[2000::][2])
 
-    resetting = ["sentence", None]
+    # initialise variables controling simulation parameters
+    N = 1000
+    resetting = [None]
     suffix = []
     values = [0.05, 0.075, 0.1, 0.15, 0.2, 0.4, 0.5, 0.7, 1.0, 1.5]
-    N = 1000
+    connectivity_seeds = {"input": [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+                          "recurrent": [5, 15, 25, 35, 45, 55, 65, 75, 85, 95]}
+    #values = [0.4, 1.0, 1.5]
     time_windows = [[0, 0.05], [0, 0.01], [0.01, 0.02], [0.02, 0.03], [0.03, 0.04], [0.04, 0.05]]
 
-    # parameters
+    adapt = True
+    if sys.argv[2] == "noadapt":
+        adapt = False  # ONLY AS CONTROL, MAKE SURE TO UNCHECK THIS OTHERISE
+
+    # initialize parameters
     parameters = Params(tmin=0, tmax=0.05)
+
+    # create current kernel
     step = parameters.step_current(t=parameters.sim["t"], on=0, off=0.05, amp=4.4e-9)
 
-    net = SNN(params=parameters, n_neurons=1000, input_dim=8, output_dim=2, syn_adapt=True)
+    # network instance
+    net = SNN(params=parameters, n_neurons=1000, input_dim=8, output_dim=2, syn_adapt=adapt)
 
-    for k, reset in enumerate(resetting):
+    for kk in range(len(connectivity_seeds["input"])):
 
-        # preallocate array for storing states
-        x = np.ndarray(shape=(len(values), len(time_windows), full_ds.sequence.shape[0], N))
+        # select seeds
+        net.w["input_seed"] = connectivity_seeds["input"][kk]
+        net.w["recurrent_seed"] = connectivity_seeds["recurrent"][kk]
 
-        # variable for storing tuning parameters
-        r = {"appInn": np.ndarray(shape=len(values,)),
-             "appRec": np.ndarray(shape=len(values,)),
-             "fRate": np.ndarray(shape=(len(values), N))}
+        for k, reset in enumerate(resetting):
 
-        for j, tau_gsra in enumerate(values):
+            # preallocate array for storing states
+            x = np.ndarray(shape=(len(values), len(time_windows), full_ds.sequence.shape[0], N))
 
-            print("\n=====Tuning the network [N = {}, tau = {}]=====".format(N, tau_gsra))
+            # variable for storing tuning parameters
+            r = {"appInn": np.ndarray(shape=len(values,)),
+                 "appRec": np.ndarray(shape=len(values,)),
+                 "fRate": np.ndarray(shape=(len(values), N))}
 
-            # set the gsra and tune the network
-            net.gsra["tau"] = tau_gsra
+            for j, tau_gsra in enumerate(values):
 
-            # creates values in net.wscale to be used below
-            net.rate_tuning2(parameters=parameters, input_current=step, reset_states=reset, dataset=tuning_ds,
-                             init_scales=[1.4, 1e-9],
-                             targets=[2, 5], margins=[0.2, 0.5],
-                             N_max=25, skip_input=False)
+                print("\n=====Tuning the network [N = {}, tau = {}]=====".format(N, tau_gsra))
 
-            print(net.wscale["input"], net.wscale["recurrent"])
-            # store these params for later on
-            r["appInn"][j] = net.wscale["input"]
-            r["appRec"][j] = net.wscale["recurrent"]
+                # set the gsra and tune the network
+                net.gsra["tau"] = tau_gsra
 
-            print("\n[{:d}] Running network of N = {} with tau_gsra = {:f}".format(k, N, tau_gsra))
+                # creates values in net.wscale to be used below
+                net.rate_tuning2(parameters=parameters, input_current=step, reset_states=reset, dataset=tuning_ds,
+                                 init_scales=[1.4, 1e-9],
+                                 targets=[2, 5], margins=[0.2, 0.5],
+                                 warmup=True, warmup_size=0.5,
+                                 N_max=25, skip_input=False)
 
-            net.config_input_weights(mean=0.4, density=0.50, seed=55)
-            net.config_recurrent_weights(density=0.1, ex=0.8, seed=155)
-            net.config_recording(n_neurons=N, t=parameters.sim["t"], dataset=full_ds, downsample=5)
+                print(net.w["input_scaling"], net.w["recurrent_scaling"])
+                # store these params for later on
+                r["appInn"][j] = net.w["input_scaling"]
+                r["appRec"][j] = net.w["recurrent_scaling"]
 
-            net.w["input"] *= net.wscale["input"]
-            net.w["recurrent"] *= net.wscale["recurrent"]
+                print("\n[{:d}] Running network of N = {} with tau_gsra = {:f}".format(k, N, tau_gsra))
 
-            net.train(dataset=full_ds, current=step, reset_states=reset)
+                net.config_input_weights(mean=0.4, density=0.50)
+                net.config_recurrent_weights(density=0.1, ex=0.8)
+                net.config_recording(n_neurons=N, t=parameters.sim["t"], dataset=full_ds, downsample=5)
 
-            r["fRate"][j, :] = net.avg_frate()
-            print("\nMean firing rate:", np.mean(r["fRate"][:]))
+                net.w["input"] *= net.w["input_scaling"]
+                net.w["recurrent"] *= net.w["recurrent_scaling"]
 
-            # Run averaging over selected temporal windows
-            print("\nAveraging ...")
-            for i, toi in enumerate(time_windows):
-                x[j, i, :, :] = net.avg_states(toi=toi)  # average membrane voltage
+                net.train(dataset=full_ds, current=step, reset_states=reset)
 
-        print("Saving output ...")
-        if reset == "sentence":
-            suffix = "reset"
-        elif reset is None:
-            suffix = "noreset"
+                r["fRate"][j, :] = net.avg_frate(stim_time=0.5, samples="all")
 
-        np.save(file=dirs.interim + "/states-{}_{}_tau".format(N, suffix), arr=x)
-        save(r, dirs.raw + "/tuning-{}_{}_tau".format(N, suffix))
+                # Run averaging over selected temporal windows
+                print("\nAveraging ...")
+                for i, toi in enumerate(time_windows):
+                    x[j, i, :, :] = net.avg_states(toi=toi)  # average membrane voltage
+
+            print("Saving output ...")
+
+            infix = None
+
+            if reset == "sentence":
+                infix = "A"
+            elif reset is None:
+                infix = "B"
+
+            # save network parameters
+            net.params_to_csv(path=dirs.interim + "/params_{}-{}-{}".format(N, infix, kk))
+
+            np.save(file=dirs.interim + "/states_{}-{}-{}".format(N, infix, kk), arr=x)
+            save(r, dirs.raw + "/tuning_{}-{}-{}".format(N, infix, kk))
+
