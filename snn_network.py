@@ -431,8 +431,8 @@ class SNN(object):
             rates = []
 
             # create weight anew prior to tuning
-            self.config_input_weights(mean=0.4, density=0.5, seed=55)
-            self.config_recurrent_weights(density=0.1, ex=0.8, seed=155)
+            self.config_input_weights(mean=0.4, density=0.5)
+            self.config_recurrent_weights(density=0.1, ex=0.8)
 
             # disconnect internal connectivity if tuning input weights
             if target_weights == "input":
@@ -562,5 +562,8 @@ class SNN(object):
 
         return sel
 
-    def params_to_csv(self, path):
+    def params_to_csv(self, path=None):
 
+        dat = [self.memb, self.w, self.syn, self.gsra, self.gref]
+
+        pd.DataFrame(data=dat).to_csv(path_or_buf=path, index=False)
