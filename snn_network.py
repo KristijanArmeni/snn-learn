@@ -397,7 +397,7 @@ class SNN(object):
 
     def rate_tuning2(self, parameters=None, input_current=None, reset_states="sentence", dataset=None,
                      init_scales=None, targets=None, margins=None, skip_input=False,
-                     warmup=False, warmup_size=None, N_max=25):
+                     warmup=False, warmup_size=None, N_max=25, tag=None):
 
         params = ["input", "recurrent"]
         sel = {params[0]: [None, None, None, None],
@@ -458,6 +458,7 @@ class SNN(object):
                     return sel
 
                 print("\n====*****=====")
+                print(tag)
                 print("[Iteration {:d} (N={:d}), warmup = {}, warmup_size={:d} %]".format(c, self.neurons["N"],
                                                                                         warmup, int(warmup_size*100)))
                 print("Initial f. rate:", spikeRate)
