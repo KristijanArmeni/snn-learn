@@ -566,4 +566,5 @@ class SNN(object):
 
         dat = [self.memb, self.w, self.syn, self.gsra, self.gref]
 
+        print("Writing parameters to {}".format(path))
         pd.DataFrame(data=dat).to_csv(path_or_buf=path, index=False)
