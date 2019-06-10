@@ -167,7 +167,6 @@ elif sys.argv[1] == "main-simulation":
     net = SNN(params=parameters, n_neurons=1000, input_dim=8, output_dim=2, syn_adapt=adapt)
 
     for kk in range(len(connectivity_seeds["input"])):
-
         # select seeds
         net.w["input_seed"] = connectivity_seeds["input"][kk]
         net.w["recurrent_seed"] = connectivity_seeds["recurrent"][kk]
@@ -184,17 +183,18 @@ elif sys.argv[1] == "main-simulation":
 
             for j, tau_gsra in enumerate(values):
 
-                print("\n=====Tuning the network [N = {}, tau = {}]=====".format(N, tau_gsra))
-
                 # set the gsra and tune the network
                 net.gsra["tau"] = tau_gsra
+
+                print("\n=====Tuning the network [N = {}, tau = {}, subject {}]=====".format(N, tau_gsra, kk))
 
                 # creates values in net.wscale to be used below
                 net.rate_tuning2(parameters=parameters, input_current=step, reset_states=reset, dataset=tuning_ds,
                                  init_scales=[1.4, 1e-9],
                                  targets=[2, 5], margins=[0.2, 0.5],
                                  warmup=True, warmup_size=0.5,
-                                 N_max=25, skip_input=False)
+                                 N_max=25, skip_input=False,
+                                 tag="[N = {}, tau = {}, subject {}]".format(N, tau_gsra, kk))
 
                 print(net.w["input_scaling"], net.w["recurrent_scaling"])
                 # store these params for later on
