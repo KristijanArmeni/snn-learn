@@ -1,7 +1,6 @@
 
 import numpy as np
-from matplotlib import pyplot as plt
-import pickle
+import pandas as pd
 from tqdm import tqdm
 
 
@@ -19,8 +18,8 @@ class SNN(object):
                   "output": np.ndarray(shape=(n_neurons, output_dim)),
                   "input_seed": None,
                   "recurrent_seed": None,
-                  "input_scaling": 0,
-                  "recurrent_scaling": 0}
+                  "input_scaling": None,
+                  "recurrent_scaling": None}
 
         # parameters
         self.sim = params.sim
@@ -28,7 +27,6 @@ class SNN(object):
         self.syn = params.syn  # synaptic parameters
         self.gsra = params.gsra  # spike-rate adaptation
         self.gref = params.gref  # refractory conductance
-        self.wscale = params.wscale  # for storing global scaling params
 
         # for storing output states
         self.recording = dict.fromkeys(["V", "t_orig", "t", "gsra", "gref", "spikes", "labels", "downsample"])
@@ -453,7 +451,7 @@ class SNN(object):
 
                 if c > N_max:
                     print("{} tuning did not converge.".format(target_weights))
-                    self.wscale[target_weights] = resApp
+                    self.w["{}_scaling".format(target_weights)] = resApp
                     sel[target_weights][1] = np.nan
                     sel[target_weights][2] = scales
                     sel[target_weights][3] = rates
@@ -557,9 +555,12 @@ class SNN(object):
                         print("Bisecting x1 = {:.4e} and x2 = {:.4e}".format(x1, x2))
                         resApp = (x1 + x2)/2
 
-            self.wscale[target_weights] = resApp
+            self.w["{}_scaling".format(target_weights)] = resApp
             sel[target_weights][1] = resApp
             sel[target_weights][2] = scales
             sel[target_weights][3] = rates
 
         return sel
+
+    def params_to_csv(self, path):
+
