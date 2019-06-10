@@ -17,6 +17,8 @@ class SNN(object):
         self.w = {"input": np.ndarray(shape=(n_neurons, input_dim)),
                   "recurrent": np.ndarray(shape=(n_neurons, n_neurons)),
                   "output": np.ndarray(shape=(n_neurons, output_dim)),
+                  "input_seed": None,
+                  "recurrent_seed": None,
                   "input_scaling": 0,
                   "recurrent_scaling": 0}
 
@@ -37,18 +39,18 @@ class SNN(object):
 
         return V, spikes, spike_count, gsra, gref, I_rec
 
-    def config_input_weights(self, mean=0.4, density=0.05, seed=None):
+    def config_input_weights(self, mean=0.4, density=0.05):
 
-        sel = np.random.RandomState(seed=seed).random_sample(size=self.w['input'].shape) > density  # define connection probability
+        sel = np.random.RandomState(seed=self.w["input_seed"]).random_sample(size=self.w['input'].shape) > density  # define connection probability
 
-        self.w["input"][:] = np.random.RandomState(seed=seed).exponential(scale=mean, size=self.w['input'].shape)
+        self.w["input"][:] = np.random.RandomState(seed=self.w["input_seed"]).exponential(scale=mean, size=self.w['input'].shape)
         self.w["input"][sel] = 0  # put 95% of connections to 0
 
         return self
 
-    def config_recurrent_weights(self, density=0.1, ex=0.8, seed=None):
+    def config_recurrent_weights(self, density=0.1, ex=0.8):
 
-        self.w["recurrent"][:] = np.random.RandomState(seed=seed).random_sample(size=self.w["recurrent"].shape)
+        self.w["recurrent"][:] = np.random.RandomState(seed=self.w["recurrent_seed"]).random_sample(size=self.w["recurrent"].shape)
         sel = self.w["recurrent"] > density
         self.w["recurrent"][sel] = 0  # set selected weights to 0
 
