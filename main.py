@@ -140,7 +140,7 @@ if sys.argv[1] == "development":
 
 elif sys.argv[1] == "main-simulation":
 
-    tuning_ds = Dataset(sequence=ds[0:1000][0], response=ds[0:1000][1], encoding=ds[0:1000][2])
+    tuning_ds = Dataset(sequence=ds[0:800][0], response=ds[0:800][1], encoding=ds[0:800][2])
     full_ds = Dataset(sequence=ds[2000::][0], response=ds[2000::][1], encoding=ds[2000::][2])
 
     # initialise variables controling simulation parameters
@@ -161,7 +161,7 @@ elif sys.argv[1] == "main-simulation":
     parameters = Params(tmin=0, tmax=0.05)
 
     # create current kernel
-    step = parameters.step_current(t=parameters.sim["t"], on=0, off=0.05, amp=4.4e-9)
+    step = parameters.step_current(t=parameters.sim["t"], on=0, off=0.05, amp=4e-9)
 
     # network instance
     net = SNN(params=parameters, n_neurons=1000, input_dim=8, output_dim=2, syn_adapt=adapt)
@@ -179,6 +179,7 @@ elif sys.argv[1] == "main-simulation":
             # variable for storing tuning parameters
             r = {"appInn": np.ndarray(shape=len(values,)),
                  "appRec": np.ndarray(shape=len(values,)),
+                 "fRate-tune": np.ndarray(shape=(len(values), N)),
                  "fRate": np.ndarray(shape=(len(values), N))}
 
             for j, tau_gsra in enumerate(values):
@@ -192,7 +193,7 @@ elif sys.argv[1] == "main-simulation":
                 net.rate_tuning2(parameters=parameters, input_current=step, reset_states=reset, dataset=tuning_ds,
                                  init_scales=[1.4, 1e-9],
                                  targets=[2, 5], margins=[0.2, 0.5],
-                                 warmup=True, warmup_size=0.5,
+                                 warmup=True, warmup_size=0.375,
                                  N_max=25, skip_input=False,
                                  tag="[N = {}, tau = {}, subject {}]".format(N, tau_gsra, kk))
 
@@ -200,6 +201,7 @@ elif sys.argv[1] == "main-simulation":
                 # store these params for later on
                 r["appInn"][j] = net.w["input_scaling"]
                 r["appRec"][j] = net.w["recurrent_scaling"]
+                r["fRate-tune"][j, :] = net.avg_frate(stim_time=0.05, samples=None)
 
                 print("\n[{:d}] Running network of N = {} with tau_gsra = {:f}".format(k, N, tau_gsra))
 
@@ -212,7 +214,7 @@ elif sys.argv[1] == "main-simulation":
 
                 net.train(dataset=full_ds, current=step, reset_states=reset)
 
-                r["fRate"][j, :] = net.avg_frate(stim_time=0.5, samples="all")
+                r["fRate"][j, :] = net.avg_frate(stim_time=0.5, samples=None)  # average over all samples (default)
 
                 # Run averaging over selected temporal windows
                 print("\nAveraging ...")
