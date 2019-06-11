@@ -150,7 +150,7 @@ elif sys.argv[1] == "main-simulation":
     values = [0.05, 0.075, 1.0, 1.5]
     connectivity_seeds = {"input": np.random.RandomState(100).choice(np.arange(0,10000), 10).tolist(),
                           "recurrent": np.random.RandomState(1000).choice(np.arange(0,10000), 10).tolist()}
-    #values = [0.4, 1.0, 1.5]
+
     time_windows = [[0, 0.05], [0, 0.01], [0.01, 0.02], [0.02, 0.03], [0.03, 0.04], [0.04, 0.05]]
 
     adapt = True
@@ -173,6 +173,14 @@ elif sys.argv[1] == "main-simulation":
 
         for k, reset in enumerate(resetting):
 
+            infix = None
+
+            # for constructing output file name
+            if reset == "sentence":
+                infix = "A"
+            elif reset is None:
+                infix = "B"
+
             # preallocate array for storing states
             x = np.ndarray(shape=(len(values), len(time_windows), full_ds.sequence.shape[0], N))
 
@@ -190,7 +198,7 @@ elif sys.argv[1] == "main-simulation":
                 print("\n=====Tuning the network [N = {}, tau = {}, subject {}]=====".format(N, tau_gsra, kk))
 
                 # creates values in net.wscale to be used below
-                net.rate_tuning2(parameters=parameters, input_current=step, reset_states=reset, dataset=tuning_ds,
+                sel = net.rate_tuning2(parameters=parameters, input_current=step, reset_states=reset, dataset=tuning_ds,
                                  init_scales=[1.4, 1e-9],
                                  targets=[2, 5], margins=[0.2, 0.5],
                                  warmup=True, warmup_size=0.375,
@@ -221,18 +229,13 @@ elif sys.argv[1] == "main-simulation":
                 for i, toi in enumerate(time_windows):
                     x[j, i, :, :] = net.avg_states(toi=toi)  # average membrane voltage
 
+                save(sel, dirs.raw + "/tuning_{}-{}-{}-{}.pkl".format(N, infix, kk, tau_gsra))
+
             print("Saving output ...")
 
-            infix = None
-
-            if reset == "sentence":
-                infix = "A"
-            elif reset is None:
-                infix = "B"
-
             # save network parameters
-            net.params_to_csv(path=dirs.interim + "/params_{}-{}-{}".format(N, infix, kk))
+            net.params_to_csv(path=dirs.interim + "/params_{}-{}-{}.csv".format(N, infix, kk))
 
-            np.save(file=dirs.interim + "/states_{}-{}-{}".format(N, infix, kk), arr=x)
-            save(r, dirs.raw + "/tuning_{}-{}-{}".format(N, infix, kk))
+            np.save(file=dirs.interim + "/states_{}-{}-{}.pkl".format(N, infix, kk), arr=x)
+            save(r, dirs.raw + "/rates_{}-{}-{}.pkl".format(N, infix, kk))
 
