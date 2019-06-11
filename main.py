@@ -147,9 +147,9 @@ elif sys.argv[1] == "main-simulation":
     N = 1000
     resetting = [None]
     suffix = []
-    values = [0.05, 0.075, 0.1, 0.15, 0.2, 0.4, 0.5, 0.7, 1.0, 1.5]
-    connectivity_seeds = {"input": [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-                          "recurrent": [5, 15, 25, 35, 45, 55, 65, 75, 85, 95]}
+    values = [0.05, 0.075, 1.0, 1.5]
+    connectivity_seeds = {"input": np.random.RandomState(100).choice(np.arange(0,10000), 10).tolist(),
+                          "recurrent": np.random.RandomState(1000).choice(np.arange(0,10000), 10).tolist()}
     #values = [0.4, 1.0, 1.5]
     time_windows = [[0, 0.05], [0, 0.01], [0.01, 0.02], [0.02, 0.03], [0.03, 0.04], [0.04, 0.05]]
 
