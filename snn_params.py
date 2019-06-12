@@ -44,7 +44,7 @@ class Params(object):
             }
 
         self.syn = {
-            "tau": kwargs.get("tau_syn", 0.05),
+            "tau": kwargs.get("tau_syn", 0.015),
             "delta_g": kwargs.get("delta_syn", 10e-9)
             }
 
