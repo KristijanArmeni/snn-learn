@@ -108,8 +108,8 @@ if sys.argv[1] == "development":
         x = np.ndarray(shape=(len(tois), dataset.sequence.shape[0], n))
 
         net = SNN(params=parameters, n_neurons=n, input_dim=8, output_dim=2, syn_adapt=True)
-        net.config_input_weights(mean=0.4, density=0.50, seed=55)
-        net.config_recurrent_weights(density=0.1, ex=0.8, seed=155)
+        net.config_input_weights(mean=0.4, density=0.50)
+        net.config_recurrent_weights(density=0.1, ex=0.8)
 
         # apply the selected weight scaling
         net.w["input"] *= Wi[i]
@@ -145,11 +145,11 @@ elif sys.argv[1] == "main-simulation":
 
     # initialise variables controling simulation parameters
     N = 1000
-    resetting = [None]
+    resetting = ["sentence"]
     suffix = []
-    values = [0.05, 0.075, 1.0, 1.5]
-    connectivity_seeds = {"input": np.random.RandomState(100).choice(np.arange(0,10000), 10).tolist(),
-                          "recurrent": np.random.RandomState(1000).choice(np.arange(0,10000), 10).tolist()}
+    values = [0.4]
+    connectivity_seeds = {"input": np.random.RandomState(100).choice(np.arange(0, 10000), 10).tolist(),
+                          "recurrent": np.random.RandomState(1000).choice(np.arange(0, 10000), 10).tolist()}
 
     time_windows = [[0, 0.05], [0, 0.01], [0.01, 0.02], [0.02, 0.03], [0.03, 0.04], [0.04, 0.05]]
 
@@ -166,7 +166,7 @@ elif sys.argv[1] == "main-simulation":
     # network instance
     net = SNN(params=parameters, n_neurons=1000, input_dim=8, output_dim=2, syn_adapt=adapt)
 
-    for kk in range(len(connectivity_seeds["input"])):
+    for kk in np.arange(0, 10):
         # select seeds
         net.w["input_seed"] = connectivity_seeds["input"][kk]
         net.w["recurrent_seed"] = connectivity_seeds["recurrent"][kk]
@@ -199,7 +199,7 @@ elif sys.argv[1] == "main-simulation":
 
                 # creates values in net.wscale to be used below
                 sel = net.rate_tuning2(parameters=parameters, input_current=step, reset_states=reset, dataset=tuning_ds,
-                                 init_scales=[1.4, 1e-9],
+                                 init_scales=[1.8, 3e-9],
                                  targets=[2, 5], margins=[0.2, 0.5],
                                  warmup=True, warmup_size=0.375,
                                  N_max=25, skip_input=False,
@@ -236,6 +236,6 @@ elif sys.argv[1] == "main-simulation":
             # save network parameters
             net.params_to_csv(path=dirs.interim + "/params_{}-{}-{}.csv".format(N, infix, kk))
 
-            np.save(file=dirs.interim + "/states_{}-{}-{}.pkl".format(N, infix, kk), arr=x)
+            np.save(file=dirs.interim + "/states_{}-{}-{}".format(N, infix, kk), arr=x)
             save(r, dirs.raw + "/rates_{}-{}-{}.pkl".format(N, infix, kk))
 
