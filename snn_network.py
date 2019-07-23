@@ -510,10 +510,11 @@ class SNN(object):
 
                         x1 = resApp
 
+                        # positive increments
                         if x2 is None and target_weights == "recurrent":
-                            resApp += 0.1e-9
+                            resApp += 0.2e-9
                         elif x2 is None and target_weights == "input":
-                            resApp *= 1.2
+                            resApp += 0.2
 
                     else:                         # we're overshooting, store as x2 and increase resApp
 
