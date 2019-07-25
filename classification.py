@@ -162,13 +162,13 @@ elif sys.argv[1] == "learning-curve-stim":
 
 elif sys.argv[1] == "stimulus-buildup":
 
-    x = np.load(p.interim + "/states-1000_reset_tau.npy")[5, :, :, :]  # take all time_windows (0 == entire time window)
-    responses = {"observed": y_rsp, "permuted": y_rsp0}
+    # load data; shape = (tau, time_window, trial, neuron)
+    x = np.load(p.interim + "/states_1000-A-0.npy")[0, 1:6, :, :]  # take all time_windows (0 == entire time window)
+    responses = {"observed": y_rsp[2000::], "permuted": y_rsp0[2000::]}
 
-    for i, key_y in responses:
+    for i, key_y in enumerate(responses):
 
-        y_t = responses[key_y][2000::]
-        y_0 = responses[key_y][1::]  # take labels
+        y = responses[key_y][2000::]
 
         scores = []
 
@@ -181,12 +181,12 @@ elif sys.argv[1] == "stimulus-buildup":
             logit = LogisticRegression(fit_intercept=True, multi_class="multinomial", C=1.0, max_iter=300,
                                        class_weight="balanced", solver="newton-cg", penalty="l2")
 
-            x_norm = scaler.fit_transform(X=x[i, :, :])  # x.shape = (n_samples, n_neurons)
+            x_norm = scaler.fit_transform(X=x[i, 2000::, :])  # x_norm.shape = (n_samples, n_neurons)
 
-            accuracy = cross_val_score(estimator=logit, X=x_norm, y=y_t, cv=5, scoring="balanced_accuracy")
+            accuracy = cross_val_score(estimator=logit, X=x_norm, y=y, cv=5, scoring="balanced_accuracy")
             scores.append(accuracy)
 
-        save(scores, p.interim + "/buildup-{}.pkl".format(key_y))
+        save(scores, p.results + "/buildup-{}.pkl".format(key_y))
 
 
 elif sys.argv[1] == "adaptation-curve":
