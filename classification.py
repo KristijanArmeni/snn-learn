@@ -172,8 +172,8 @@ elif sys.argv[1] == "stimulus-buildup":
 
         scores = []
 
-        # loop over time windows
-        for j in range(x.shape[1]):
+        # loop over time windows x.shape = (time, trials, neurons)
+        for j in range(x.shape[0]):
 
             print("\n[{:d}] Fitting time window starting at {:d} msec ...".format(j, j*10))
 
