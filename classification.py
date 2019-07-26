@@ -31,7 +31,6 @@ y_sym = stim.sequence  # stimulus identity
 y_rsp0 = np.roll(y_rsp, int((len(y_rsp)/2)))  # shifted responses
 y_sym0 = np.roll(y_sym, int((len(y_sym)/2)))  # shifted resposnes
 
-
 if sys.argv[1] == "validation-curve-response":
 
     # ===== LOGISTIC REGRESSION: RESPONSES-TRAINING CURVE ===== #
@@ -164,12 +163,24 @@ elif sys.argv[1] == "stimulus-buildup":
 
     # load data; shape = (tau, time_window, trial, neuron)
     x = np.load(p.interim + "/states_1000-A-0.npy")[0, 1:6, :, :]  # take all time_windows (0 == entire time window)
-    responses = {"observed": y_rsp[2000::], "permuted": y_rsp0[2000::]}
+
+    # create dataset for new and old stimulus labels
+
+    x = x[:, 1::, :]           # from the second sample onwards
+    y_sym_new = y_sym[1::]     # from the second sample onwards
+    y_sym_new0 = y_sym0[1::]
+    y_sym_old = y_sym[0:-1]    # from the first sample onwards
+    y_sym_old0 = y_sym0[0:-1]
+
+    responses = {"new-observed": y_sym_new[2000::],
+                 "new-permuted": y_sym_new0[2000::],
+                 "old-observed": y_sym_old[2000::],
+                 "old-permuted": y_sym_old0[2000::],}
 
     for i, key_y in enumerate(responses):
 
+        print("\n Fitting model with {} responses ...".format(key_y))
         y = responses[key_y][2000::]
-
         scores = []
 
         # loop over time windows x.shape = (time, trials, neurons)
@@ -186,8 +197,7 @@ elif sys.argv[1] == "stimulus-buildup":
             accuracy = cross_val_score(estimator=logit, X=x_norm, y=y, cv=5, scoring="balanced_accuracy")
             scores.append(accuracy)
 
-        save(scores, p.results + "/buildup-{}.pkl".format(key_y))
-
+        save(scores, p.results + "/stimulus-decoding_{}.pkl".format(key_y))
 
 elif sys.argv[1] == "adaptation-curve":
 
