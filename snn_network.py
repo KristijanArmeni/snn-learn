@@ -133,11 +133,12 @@ class SNN(object):
         # set the parameter which controls the adaptation term in the update eq
         if self.syn_adapt:
             c = 1
+            alpha_gsra = np.exp(-dt / tau_gsra)
+            alpha_gref = np.exp(-dt / tau_gref)
         else:
             c = 0
-
-        alpha_gsra = np.exp(-dt/tau_gsra)
-        alpha_gref = np.exp(-dt/tau_gref)
+            alpha_gsra = 0
+            alpha_gref = 0
 
         # Stimulation loop (start indexing from 1)
         for k in np.arange(1, samples):
@@ -258,7 +259,7 @@ class SNN(object):
 
         return firing_rate
 
-    def avg_states(self, toi=None):
+    def sample_states(self, toi=None, type=None):
 
         """
         Compute average membrane voltage per neuron per trial
@@ -275,8 +276,12 @@ class SNN(object):
         ton = (np.abs(self.recording["t"] - toi[0])).argmin()
         toff = (np.abs(self.recording["t"] - toi[1])).argmin()
 
-        # take average over selected time period
-        out = np.nanmean(a=self.recording["V"][:, :, ton:toff], axis=2)
+        if type == "mean":
+            # take average over selected time period
+            out = np.nanmean(a=self.recording["V"][:, :, ton:toff], axis=2)
+        elif type == "point":
+            # take a single sample point
+            out = self.recording["V"][:, :, ton]
 
         return out
 
