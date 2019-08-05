@@ -48,6 +48,11 @@ class Params(object):
             "delta_g": kwargs.get("delta_syn", 10e-9)
             }
 
+        self.w = {
+            "input-seeds": np.random.RandomState(100).choice(np.arange(0, 10000), 10).tolist(),
+            "recurrent-seeds": np.random.RandomState(1000).choice(np.arange(0, 10000), 10).tolist(),
+                  }
+
         self.data = dict.fromkeys(["train", "validate", "test"])
         self.inp_cur = dict.fromkeys(["I_amp", "t_on", "t_off", "type"])
 
