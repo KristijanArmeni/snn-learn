@@ -8,6 +8,7 @@ from stimuli import Dataset
 from util import save, load, Paths
 import numpy as np
 import sys
+import os
 
 # VIZUALIZATION
 from matplotlib import pyplot as plt
@@ -147,7 +148,7 @@ elif sys.argv[1] == "main-simulation":
     N = 1000
     resetting = ["sentence"]
     suffix = []
-    values = [0.4]
+    values = [0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.5]
     connectivity_seeds = {"input": np.random.RandomState(100).choice(np.arange(0, 10000), 10).tolist(),
                           "recurrent": np.random.RandomState(1000).choice(np.arange(0, 10000), 10).tolist()}
 
@@ -195,22 +196,34 @@ elif sys.argv[1] == "main-simulation":
                 # set the gsra and tune the network
                 net.gsra["tau"] = tau_gsra
 
-                print("\n=====Tuning the network [N = {}, tau = {}, subject {}]=====".format(N, tau_gsra, kk))
+                tune_params_file = dirs.raw + "/tuning_{}-{}-{}-{}.pkl".format(N, infix, kk, tau_gsra)
 
-                # creates values in net.wscale to be used below
-                sel = net.rate_tuning2(parameters=parameters, input_current=step, reset_states=reset, dataset=tuning_ds,
-                                 init_scales=[1.8, 3e-9],
-                                 targets=[2, 5], margins=[0.2, 0.5],
-                                 warmup=True, warmup_size=0.375,
-                                 N_max=25, skip_input=False,
-                                 tag="[N = {}, tau = {}, subject {}]".format(N, tau_gsra, kk))
+                # LOAD THE TUNING PARAMS OR RUN THE TUNING
+                if os.path.isfile(tune_params_file):
 
-                print(net.w["input_scaling"], net.w["recurrent_scaling"])
-                # store these params for later on
-                r["appInn"][j] = net.w["input_scaling"]
-                r["appRec"][j] = net.w["recurrent_scaling"]
-                r["fRate-tune"][j, :] = net.avg_frate(stim_time=0.05, samples=None)
+                    print("Loading {}".format(tune_params_file))
+                    tune_params = load(tune_params_file)
+                    net.w["input_scaling"] = tune_params["input"][1]
+                    net.w["recurrent_scaling"] = tune_params["recurrent"][1]
 
+                else:
+                    print("\n=====Tuning the network [N = {}, tau = {}, subject {}]=====".format(N, tau_gsra, kk))
+
+                    # creates values in net.wscale to be used below
+                    sel = net.rate_tuning2(parameters=parameters, input_current=step, reset_states=reset, dataset=tuning_ds,
+                                           init_scales=[1.8, 3e-9],
+                                           targets=[2, 5], margins=[0.2, 0.5],
+                                           warmup=True, warmup_size=0.375,
+                                           N_max=25, skip_input=False,
+                                           tag="[N = {}, tau = {}, subject {}]".format(N, tau_gsra, kk))
+
+                    print(net.w["input_scaling"], net.w["recurrent_scaling"])
+                    # store these params for later on
+                    r["appInn"][j] = net.w["input_scaling"]
+                    r["appRec"][j] = net.w["recurrent_scaling"]
+                    r["fRate-tune"][j, :] = net.avg_frate(stim_time=0.05, samples=None)
+
+                # RUN SIMULATION
                 print("\n[{:d}] Running network of N = {} with tau_gsra = {:f}".format(k, N, tau_gsra))
 
                 net.config_input_weights(mean=0.4, density=0.50)
@@ -222,20 +235,28 @@ elif sys.argv[1] == "main-simulation":
 
                 net.train(dataset=full_ds, current=step, reset_states=reset)
 
-                r["fRate"][j, :] = net.avg_frate(stim_time=0.5, samples=None)  # average over all samples (default)
+                r["fRate"][j, :] = net.avg_frate(stim_time=0.05, samples=None)  # average over all samples (default)
 
                 # Run averaging over selected temporal windows
-                print("\nAveraging ...")
+                print("\nCollecting states ...")
                 for i, toi in enumerate(time_windows):
-                    x[j, i, :, :] = net.avg_states(toi=toi)  # average membrane voltage
 
-                save(sel, dirs.raw + "/tuning_{}-{}-{}-{}.pkl".format(N, infix, kk, tau_gsra))
+                    # take average over whole window if the entire window is specified
+                    if toi == [0, 0.05]:
+                        print("Mean over toi = ", toi)
+                        x[j, i, :, :] = net.sample_states(toi=toi, type="mean")  # average membrane voltage
+                    # otherwise record a single sample point
+                    else:
+                        print("Sampling at t = ", toi[0])
+                        x[j, i, :, :] = net.sample_states(toi=toi, type="point")  # sample point membrane voltage
+
+                if not os.path.isfile(tune_params_file):
+                    save(sel, tune_params_file)
 
             print("Saving output ...")
 
             # save network parameters
-            net.params_to_csv(path=dirs.interim + "/params_{}-{}-{}.csv".format(N, infix, kk))
+            net.params_to_csv(path=dirs.interim + "/params_{}-{}-s{:02d}.csv".format(N, infix, kk+1))
 
-            np.save(file=dirs.interim + "/states_{}-{}-{}".format(N, infix, kk), arr=x)
-            save(r, dirs.raw + "/rates_{}-{}-{}.pkl".format(N, infix, kk))
-
+            np.save(file=dirs.interim + "/states_{}-{}-s{:02d}".format(N, infix, kk+1), arr=x)
+            save(r, dirs.raw + "/rates_{}-{}-s{:02d}.pkl".format(N, infix, kk+1))
