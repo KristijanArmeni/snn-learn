@@ -1,5 +1,5 @@
 
-import sys
+import sys, os, regex
 import numpy as np
 from util import load, Paths
 from matplotlib import pyplot as plt
@@ -27,20 +27,20 @@ if sys.argv[1] == "sequence-statistics":
     plt.savefig(rootdir + "pair_statistics.svg")
     plt.savefig(rootdir + "pair_statistics.png")
 
-if sys.argv[1] == "tuning":
+elif sys.argv[1] == "tuning":
 
     t100 = load("/project/3011085.04/snn/data/raw/tuning-100")
     t500 = load("/project/3011085.04/snn/data/raw/tuning-500")
-    t1000 = load("/project/3011085.04/snn/data/raw/tuning-1000")
+    t1000 = load("/project/3011085.04/snn/data/raw/tuning_1000-B-0")
 
-    p = [t100, t500, t1000]
+    p = [t1000]
 
     # make a plot
 
     plt.figure()
     for i, d in enumerate(p):
 
-        plt.plot(p[i]["input"][3], '--o', label="N = {}".format(p[i]["input"][0]))
+        plt.plot(p[i]["fRate-tune"][3], '--o', label="N = {}".format(1000))
 
     #plt.fill_between(x=np.arange(0, 6), y1=4.5, y2=5.5, color="gray", alpha=0.1)
     #plt.text(x=5, y=5.2, s="recurrent target range")
@@ -74,6 +74,21 @@ if sys.argv[1] == "tuning":
     print("Saving {}".format(rootdir + "recurrent_tuning.png"))
     plt.savefig(rootdir + "recurrent_tuning.svg")
     plt.savefig(rootdir + "recurrent_tuning.png")
+
+elif sys.argv[1] == "subject-tuning":
+
+    d = [f for f in os.listdir(p.raw) if regex.match(r'rates_1000-B-.*', f)]
+
+    plt.figure()
+    for f in d[:-1]:
+
+        r = load(p.raw + "/" + f)
+
+        # plot rates during tuning
+        plt.plot(np.mean(r["fRate-tune"], 1), '--o')
+
+    plt.show()
+
 
 elif sys.argv[1] == "firing rate":
 
@@ -227,13 +242,10 @@ if sys.argv[1] == "adaptation-curve":
     #plt.figure()
     #sns.lineplot(data=datlong, x=np.arange(0, 10), y="value", hue="condition")
 
-    plt.fill_between(x=X, y1=rnd1+rnd1std, y2=rnd1-y1std, alpha=0.1)
-    plt.fill_between(x=X, y1=rnd2+rnd2std, y2=rnd2-y2std, alpha=0.1)
-    plt.errorbar(X, y1, '-o', yerr=y1std[], label="reset")
-    plt.errorbar(X, y2, '-o', yerr=y2std, label="no reset")
-    plt.errorbar(X, np.tile(y3, y1.shape[0]), '-o', yerr=np.tile(y3std, y1.shape[0]), label="no adaptation")
-    plt.plot(X, rnd1, '--o', label="reset-permuted")
-    plt.plot(X, rnd2, '--o', label="noreset-permuted")
+    plt.fill_between(x=X, y1=y1+y1std, y2=y1-y1std, alpha=0.1)
+    plt.fill_between(x=X, y1=y2+y2std, y2=y2-y2std, alpha=0.1)
+    plt.plot(X, y1, '--o', label="reset")
+    plt.plot(X, y2, '--o', label="noreset")
     plt.xticks(ticks=X, labels=x_labels)
     plt.ylabel("5-fold CV accuracy (prop. correct)")
     plt.xlabel("Neuronal adaptation time constant (msec)")
@@ -244,3 +256,24 @@ if sys.argv[1] == "adaptation-curve":
     print("Saving {}".format(p.figures + "/adaptation_curve.png"))
     plt.savefig(p.figures + "/adaptation_curve.svg")
     plt.savefig(p.figures + "/adaptation_curve.png")
+
+elif sys.argv[1] == "stimulus-buildup":
+
+    d = np.asarray(load(p.results + "/stimulus-decoding_old-observed_s01.pkl"))
+    d0 = np.asarray(load(p.results + "/stimulus-decoding_old-permuted_s01.pkl"))
+
+    dm = np.mean(d, axis=0)
+    dm0 = np.mean(d0, axis=0)
+    ds = np.std(d, axis=0)
+    ds0 = np.std(d0, axis=0)
+
+    x = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
+
+    plt.figure()
+    plt.fill_between(x=x, y1=dm + ds, y2=dm - ds, alpha=0.1)
+    plt.fill_between(x=x, y1=dm0 + ds0, y2=dm0 - ds0, alpha=0.1)
+    plt.plot(x, dm, '--o', label="observed")
+    plt.plot(x, dm0, '--o', label="permuted")
+    plt.ylim(0, 1.1)
+    plt.legend(loc="best")
+    plt.show()
