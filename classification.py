@@ -2,6 +2,7 @@
 
 import numpy as np
 import sys
+import gc
 from matplotlib import pyplot as plt
 plt.style.use('seaborn-notebook')
 
@@ -159,83 +160,111 @@ elif sys.argv[1] == "learning-curve-stim":
 
         save(scores, p.results + "/learning-curve_symbol-{}.pkl".format(N))
 
-elif sys.argv[1] == "stimulus-decoding":
+elif sys.argv[1] == "stimulus-decoding-time":
 
-    # load data; shape = (tau, time_window, trial, neuron)
-    x = np.load(p.interim + "/states_1000-A-s1.npy")[0, 1:6, :, :]  # take all time_windows (0 == entire time window)
+    # Subject loop
+    for h in np.arange(0, 10):
 
-    # create dataset for new and old stimulus labels
+        print("\n Running subject s{:02d} ...".format(h+1))
 
-    x = x[:, 1::, :]              # from the second sample onwards
-    y_sym_new = y_sym[2001::]     # from the second sample onwards
-    y_sym_new0 = y_sym0[2001::]
-    y_sym_old = y_sym[2000:-1]       # from the first sample onwards
-    y_sym_old0 = y_sym0[2000:-1]
+        # load data; shape = (tau, time_window, trial, neuron)
+        data = np.load(p.interim + "/states_1000-A-s{:02d}.npy".format(h + 1))[4, 1::, :, :]   # 4 --> tau == 400 msec; 1-end --> time steps
 
-    responses = {"new-observed": y_sym_new,
-                 "new-permuted": y_sym_new0,
-                 "old-observed": y_sym_old,
-                 "old-permuted": y_sym_old0}
+        # create dataset for new and old stimulus labels
+        x = data[:, 1::, :]              # from the second sample onwards
+        y_sym_new = y_sym[2001::]        # from the second sample onwards
+        y_sym_new0 = y_sym0[2001::]      # from the second sample onwards
+        y_sym_old = y_sym[2000:-1]       # from the first sample onwards
+        y_sym_old0 = y_sym0[2000:-1]
 
-    for i, key_y in enumerate(responses):
+        responses = {"new-observed": y_sym_new,
+                     #"new-permuted": y_sym_new0,
+                     "old-observed": y_sym_old}
+                     #"old-permuted": y_sym_old0}
 
-        print("\n Fitting model with {} responses ...".format(key_y))
-        y = responses[key_y]
-        scores = []
+        # response loop
+        for i, key_y in enumerate(responses):
 
-        # loop over time windows x.shape = (time, trials, neurons)
-        for j in range(x.shape[0]):
-
-            print("\n[{:d}] Fitting time window starting at {:d} msec ...".format(j, j*10))
-
-            scaler = StandardScaler()
-            logit = LogisticRegression(fit_intercept=True, multi_class="multinomial", C=1.0, max_iter=300,
-                                       class_weight="balanced", solver="newton-cg", penalty="l2")
-
-            x_norm = scaler.fit_transform(X=x[i, :, :])  # x_norm.shape = (n_samples, n_neurons)
-
-            accuracy = cross_val_score(estimator=logit, X=x_norm, y=y, cv=5, scoring="balanced_accuracy")
-            scores.append(accuracy)
-
-        save(scores, p.results + "/stimulus-decoding_{}_s01.pkl".format(key_y))
-
-elif sys.argv[1] == "adaptation-curve":
-
-    # load data; shape = (tau, time_window, trial, neuron)
-    x_r = np.load(p.interim + "/states-1000_reset_tau.npy")
-    x_c = np.load(p.interim + "/states-1000_noreset_tau.npy")
-
-    states = {"reset": x_r, "noreset": x_c}
-    responses = {"observed": y_rsp[2000::], "permuted": y_rsp0[2000::]}
-
-    scaler = StandardScaler()
-    logit = LogisticRegression(fit_intercept=True, C=1.0, max_iter=300, class_weight="balanced",
-                               solver="newton-cg", penalty="l2")
-
-    # loop over conditions
-    for i, key_x in enumerate(states):
-
-        # choose the first time window
-        x = states[key_x][:, 0, :, :]  # x.shape = (tau, n_samples, n_neurons)
-
-        # loop over y labels
-        for h, key_y in enumerate(responses):
-
-            # choose the samples corresponding to the test set
-            y = responses[key_y]  # shape = (n_samples,)
+            print("\n Fitting model with {} responses ...".format(key_y))
+            y = responses[key_y]
             scores = []
 
-            # loop over tau values
+            # loop over time windows x.shape = (time, trials, neurons)
             for j in range(x.shape[0]):
 
-                print("\nRunning states with {}, {} labels and tau iteration {:d}".format(key_x, key_y, j))
+                print("\n[{:d}] Fitting time window starting at {:d} msec ...".format(j, j*10))
 
-                x_norm = scaler.fit_transform(X=x[j, :, :])  # shape=(n_samples, n_features)
+                scaler = StandardScaler()
+                logit = LogisticRegression(fit_intercept=True, multi_class="multinomial", C=1.0, max_iter=300,
+                                           class_weight="balanced", solver="newton-cg", penalty="l2")
+
+                x_norm = scaler.fit_transform(X=x[j, :, :])  # x_norm.shape = (n_samples, n_neurons)
 
                 accuracy = cross_val_score(estimator=logit, X=x_norm, y=y, cv=5, scoring="balanced_accuracy")
                 scores.append(accuracy)
 
-            save(scores, p.results + "/scores-1000-{}-{}.pkl".format(key_x, key_y))
+            save(scores, p.results + "/stimulus-decoding_{}_s01.pkl".format(key_y))
+
+        # delete names, free memory
+        del data, x
+        gc.collect()
+
+elif sys.argv[1] == "stimulus-decoding-adaptation":
+
+    pass
+
+elif sys.argv[1] == "adaptation-curve":
+
+    # load data; shape = (tau, time_window, trial, neuron)
+    subjects = np.arange(0, 10)
+
+    # loop over subjects
+    for k in subjects:
+
+        print("Running subject s{:02d}".format(k+1))
+        fname = p.interim + "/states_1000-A-s{:02d}.npy".format(subjects[k]+1)
+
+        print("Loading {} ...".format(fname))
+        x_r = np.load(fname)
+
+        states = {"A": x_r}
+        responses = {"observed": y_rsp[2000::]}
+
+        scaler = StandardScaler()
+        logit = LogisticRegression(fit_intercept=True, C=1.0, max_iter=300, class_weight="balanced",
+                                   solver="newton-cg", penalty="l2")
+
+        # loop over conditions
+        for i, key_x in enumerate(states):
+
+            # choose the first time window (== average)
+            x = states[key_x][:, 0, :, :]  # x.shape = (tau, time_windows, n_samples, n_neurons)
+
+            # loop over y labels
+            for h, key_y in enumerate(responses):
+
+                # choose the samples corresponding to the test set
+                y = responses[key_y]  # shape = (n_samples,)
+                scores = []
+
+                # loop over tau values
+                for j in range(x.shape[0]):
+
+                    print("\nClassifying states with {}, {} labels and tau iteration {:d}".format(key_x, key_y, j))
+
+                    x_norm = scaler.fit_transform(X=x[j, :, :])  # shape=(n_samples, n_features)
+
+                    accuracy = cross_val_score(estimator=logit, X=x_norm, y=y, cv=5, scoring="balanced_accuracy")
+                    scores.append(accuracy)
+
+                save(scores, p.results + "/scores_1000-{}-{}-s{:02d}.pkl".format(key_x, key_y, k+1))
+
+            del x
+            gc.collect()
+
+        # clear variable from memory
+        del x_r, states, responses
+        gc.collect()
 
 elif sys.argv[1] == "no-adaptation":
 
