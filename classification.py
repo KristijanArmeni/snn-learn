@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 plt.style.use('seaborn-notebook')
 
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import learning_curve, validation_curve, cross_val_score
+from sklearn.model_selection import learning_curve, validation_curve, cross_val_score, cross_validate
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 
 #Own modules
@@ -19,14 +19,20 @@ p = Paths()
 # 12ax task
 stim = load(p.raw + "/12ax-12k.pkl")
 
-# load the actual data
-x100 = np.load(p.interim + "/states-100.npy")
-x500 = np.load(p.interim + "/states-500.npy")
-x1000 = np.load(p.interim + "/states-1000.npy")
-
 # observed responses and stimuli
 y_rsp = stim.response  # behavioral responses
 y_sym = stim.sequence  # stimulus identity
+
+# balance datasets
+selTrue = np.where(y_rsp == True)[0]
+selFalse = np.random.RandomState(123).choice(np.where(y_rsp==False)[0], size=len(selTrue), replace=False)
+
+sel = np.concatenate((selTrue, selFalse))
+
+# find target ids
+t1 = np.where(y_sym == 'X')[0]
+t2 = np.where(y_sym == 'Y')[0]
+tgt = np.concatenate((t1, t2))  # only targets, Y and X
 
 # responses control
 y_rsp0 = np.roll(y_rsp, int((len(y_rsp)/2)))  # shifted responses
@@ -36,7 +42,7 @@ if sys.argv[1] == "validation-curve-response":
 
     # ===== LOGISTIC REGRESSION: RESPONSES-TRAINING CURVE ===== #
     scaler = StandardScaler()
-    logit = LogisticRegression(fit_intercept=True, class_weight="balanced", solver="newton-cg", penalty="l2")
+    logit = LogisticRegression(fit_intercept=True, class_weight=None, solver="newton-cg", penalty="l2")
     range = np.array([1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1, 1e2, 1e3, 1e4])
 
     trlidx = np.arange(0, 2000)
@@ -185,14 +191,14 @@ elif sys.argv[1] == "stimulus-decoding-time":
         # response loop
         for i, key_y in enumerate(responses):
 
-            print("\n Fitting model with {} responses ...".format(key_y))
+            print("Fitting model with {} responses ...".format(key_y))
             y = responses[key_y]
             scores = []
 
             # loop over time windows x.shape = (time, trials, neurons)
             for j in range(x.shape[0]):
 
-                print("\n[{:d}] Fitting time window starting at {:d} msec ...".format(j, j*10))
+                print("[{:d}] Fitting time window starting at {:d} msec ...".format(j, j*10))
 
                 scaler = StandardScaler()
                 logit = LogisticRegression(fit_intercept=True, multi_class="multinomial", C=1.0, max_iter=300,
@@ -203,7 +209,7 @@ elif sys.argv[1] == "stimulus-decoding-time":
                 accuracy = cross_val_score(estimator=logit, X=x_norm, y=y, cv=5, scoring="balanced_accuracy")
                 scores.append(accuracy)
 
-            save(scores, p.results + "/stimulus-decoding_{}_s01.pkl".format(key_y))
+            save(scores, p.results + "/stimulus-decoding_{}_s{:02d}.pkl".format(key_y, h+1))
 
         # delete names, free memory
         del data, x
@@ -215,20 +221,37 @@ elif sys.argv[1] == "stimulus-decoding-adaptation":
 
 elif sys.argv[1] == "adaptation-curve":
 
+    N = 1000
+    subselect = False
+    balanceDs = False
+
     # load data; shape = (tau, time_window, trial, neuron)
     subjects = np.arange(0, 10)
 
     # loop over subjects
     for k in subjects:
 
-        print("Running subject s{:02d}".format(k+1))
-        fname = p.interim + "/states_1000-A-s{:02d}.npy".format(subjects[k]+1)
+        print("Running subject s{:02d} (N = {})".format(k+1, N))
+        fname = p.interim + "/states_{}-A-s{:02d}.npy".format(N, subjects[k]+1)
 
         print("Loading {} ...".format(fname))
         x_r = np.load(fname)
+        y_rsp = stim.response[2000::]
+
+        # select targets only
+        print("Subselect == {}".format(subselect))
+        print("Balance == {}".format(balanceDs))
+
+        if subselect:
+            x_r = x_r[:, :, tgt[tgt > 2000] - 2000, :]  # subtract 2000 to start indexing from 1
+            y_rsp = y_rsp[tgt[tgt > 2000] - 2000]
+
+        if balanceDs:
+            x_r = x_r[:, :, sel[sel > 2000] - 2000, :]
+            y_rsp = y_rsp[sel[sel > 2000] - 2000]
 
         states = {"A": x_r}
-        responses = {"observed": y_rsp[2000::]}
+        responses = {"observed": y_rsp}
 
         scaler = StandardScaler()
         logit = LogisticRegression(fit_intercept=True, C=1.0, max_iter=300, class_weight="balanced",
@@ -254,10 +277,22 @@ elif sys.argv[1] == "adaptation-curve":
 
                     x_norm = scaler.fit_transform(X=x[j, :, :])  # shape=(n_samples, n_features)
 
-                    accuracy = cross_val_score(estimator=logit, X=x_norm, y=y, cv=5, scoring="balanced_accuracy")
+                    accuracy = cross_validate(estimator=logit, X=x_norm, y=y,
+                                              cv=5, scoring=('balanced_accuracy', 'accuracy', 'precision', 'recall'),
+                                              return_train_score=True, return_estimator=True)
+
                     scores.append(accuracy)
 
-                save(scores, p.results + "/scores_1000-{}-{}-s{:02d}.pkl".format(key_x, key_y, k+1))
+                savename = None
+
+                if subselect:
+                    savename = "/scores_{}-{}-{}-s{:02d}_tgt.pkl".format(N, key_x, key_y, k + 1)
+                elif balanceDs:
+                    savename = "/scores_{}-{}-{}-s{:02d}_bal.pkl".format(N, key_x, key_y, k + 1)
+                else:
+                    savename = "/scores_{}-{}-{}-s{:02d}.pkl".format(N, key_x, key_y, k + 1)
+
+                save(scores, p.results + savename)
 
             del x
             gc.collect()
@@ -298,7 +333,24 @@ elif sys.argv[1] == "no-adaptation":
 
                 x_norm = scaler.fit_transform(X=x[j, :, :])  # shape=(n_samples, n_features)
 
-                accuracy = cross_val_score(estimator=logit, X=x_norm, y=y, cv=5, scoring="balanced_accuracy")
+                accuracy = cross_validate(estimator=logit, X=x_norm, y=y,
+                                          cv=5, scoring=('balanced_accuracy', 'accuracy', 'precision', 'recall'),
+                                          return_train_score=True, return_estimator=True)
+
                 scores.append(accuracy)
 
             save(scores, p.results + "/scores-1000-{}-{}-noadapt.pkl".format(key_x, key_y))
+
+elif sys.argv[1] == 'baseline':
+
+    logit = LogisticRegression(fit_intercept=True, C=1.0, max_iter=300, class_weight='balanced',
+                               solver="newton-cg", penalty="l2")
+
+    scoring = ('balanced_accuracy', 'accuracy', 'precision', 'recall')
+
+    scores = cross_validate(estimator=logit, X=stim.encoding[:, 0:2000].T, y=stim.response[0:2000],
+                            cv=5, scoring=scoring, return_estimator=True, return_train_score=True)
+
+
+    save(accuracy, p.results + "/scores-baseline.pkl")
+
