@@ -401,7 +401,7 @@ class SNN(object):
         return sel
 
     def rate_tuning2(self, parameters=None, input_current=None, reset_states="sentence", dataset=None,
-                     init_scales=None, targets=None, margins=None, skip_input=False,
+                     init_scales=None, increments=None, targets=None, margins=None, skip_input=False,
                      warmup=False, warmup_size=None, N_max=25, tag=None):
 
         params = ["input", "recurrent"]
@@ -517,9 +517,9 @@ class SNN(object):
 
                         # positive increments
                         if x2 is None and target_weights == "recurrent":
-                            resApp += 0.2e-9
+                            resApp += increments[1]
                         elif x2 is None and target_weights == "input":
-                            resApp += 0.2
+                            resApp += increments[0]
 
                     else:                         # we're overshooting, store as x2 and increase resApp
 
