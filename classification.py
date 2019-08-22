@@ -10,7 +10,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import learning_curve, validation_curve, cross_val_score, cross_validate
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 
-#Own modules
+# Own modules
 from util import load, save, Paths
 
 # shortucts to paths
@@ -23,10 +23,9 @@ stim = load(p.raw + "/12ax-12k.pkl")
 y_rsp = stim.response  # behavioral responses
 y_sym = stim.sequence  # stimulus identity
 
-# balance datasets
+# downsample the majority class (== False)
 selTrue = np.where(y_rsp == True)[0]
 selFalse = np.random.RandomState(123).choice(np.where(y_rsp==False)[0], size=len(selTrue), replace=False)
-
 sel = np.concatenate((selTrue, selFalse))
 
 # find target ids
@@ -34,9 +33,22 @@ t1 = np.where(y_sym == 'X')[0]
 t2 = np.where(y_sym == 'Y')[0]
 tgt = np.concatenate((t1, t2))  # only targets, Y and X
 
+# now find a conjuct
+tgtselid = np.isin(sel, tgt)  # check whether downsampled stims are targets
+tgtsel = sel[tgtselid]
+
 # responses control
 y_rsp0 = np.roll(y_rsp, int((len(y_rsp)/2)))  # shifted responses
-y_sym0 = np.roll(y_sym, int((len(y_sym)/2)))  # shifted resposnes
+y_sym0 = np.roll(y_sym, int((len(y_sym)/2)))  # shifted responses
+
+# define dependency length
+
+seg, _, _, pseg = stim.segment()
+lev = np.concatenate([np.arange(0, len(i)) for i in seg])
+lev[np.isin(lev, np.array([1, 2]))] = 1
+lev[np.isin(lev, np.array([3, 4]))] = 2
+lev[np.isin(lev, np.array([5, 6]))] = 3
+lev[np.isin(lev, np.array([7, 8]))] = 4
 
 if sys.argv[1] == "validation-curve-response":
 
@@ -222,11 +234,32 @@ elif sys.argv[1] == "stimulus-decoding-adaptation":
 elif sys.argv[1] == "adaptation-curve":
 
     N = 1000
-    subselect = False
+    targetsOnly = False
     balanceDs = False
+    level = 4
+
+    # select targets only
+    print("Subselect == {}".format(targetsOnly))
+    print("Balance == {}".format(balanceDs))
+    print("Level == {}".format(level))
+
+    # subselect features if necessary
+    selection = None
+    if targetsOnly and not balanceDs:
+        selection = tgt[tgt > 2000] - 2000
+    elif balanceDs and not targetsOnly:
+        selection = sel[sel > 2000] - 2000
+    elif balanceDs and targetsOnly:
+        selection = tgtsel[tgtsel > 2000] - 2000
+    elif level is not None:
+        selection = np.isin(lev[2000::], level)
 
     # load data; shape = (tau, time_window, trial, neuron)
     subjects = np.arange(0, 10)
+
+    scaler = StandardScaler()
+    logit = LogisticRegression(fit_intercept=True, C=1.0, max_iter=300, class_weight="balanced",
+                               solver="newton-cg", penalty="l2")
 
     # loop over subjects
     for k in subjects:
@@ -234,28 +267,17 @@ elif sys.argv[1] == "adaptation-curve":
         print("Running subject s{:02d} (N = {})".format(k+1, N))
         fname = p.interim + "/states_{}-A-s{:02d}.npy".format(N, subjects[k]+1)
 
-        print("Loading {} ...".format(fname))
-        x_r = np.load(fname)
-        y_rsp = stim.response[2000::]
-
-        # select targets only
-        print("Subselect == {}".format(subselect))
-        print("Balance == {}".format(balanceDs))
-
-        if subselect:
-            x_r = x_r[:, :, tgt[tgt > 2000] - 2000, :]  # subtract 2000 to start indexing from 1
-            y_rsp = y_rsp[tgt[tgt > 2000] - 2000]
-
-        if balanceDs:
-            x_r = x_r[:, :, sel[sel > 2000] - 2000, :]
-            y_rsp = y_rsp[sel[sel > 2000] - 2000]
+        if selection is None:
+            print("Loading {} ...".format(fname))
+            x_r = np.load(fname)
+            y_rsp = stim.response[2000::]
+        else:
+            print("loading {} and applying selection ...".format(fname))
+            x_r = np.load(fname)[:, :, selection, :]
+            y_rsp = (stim.response[2000::])[selection]
 
         states = {"A": x_r}
         responses = {"observed": y_rsp}
-
-        scaler = StandardScaler()
-        logit = LogisticRegression(fit_intercept=True, C=1.0, max_iter=300, class_weight="balanced",
-                                   solver="newton-cg", penalty="l2")
 
         # loop over conditions
         for i, key_x in enumerate(states):
@@ -285,13 +307,18 @@ elif sys.argv[1] == "adaptation-curve":
 
                 savename = None
 
-                if subselect:
+                if targetsOnly and not balanceDs:
                     savename = "/scores_{}-{}-{}-s{:02d}_tgt.pkl".format(N, key_x, key_y, k + 1)
-                elif balanceDs:
+                elif balanceDs and not targetsOnly:
                     savename = "/scores_{}-{}-{}-s{:02d}_bal.pkl".format(N, key_x, key_y, k + 1)
-                else:
+                elif balanceDs and targetsOnly:
+                    savename = "/scores_{}-{}-{}-s{:02d}_tgtbal.pkl".format(N, key_x, key_y, k + 1)
+                elif not balanceDs and not targetsOnly and level is None:
                     savename = "/scores_{}-{}-{}-s{:02d}.pkl".format(N, key_x, key_y, k + 1)
+                elif not balanceDs and not targetsOnly and level is not None:
+                    savename = "/scores_{}-{}-{}-s{:02d}_{}.pkl".format(N, key_x, key_y, k + 1, level)
 
+                print("Saving {}".format(p.results + savename))
                 save(scores, p.results + savename)
 
             del x
@@ -348,9 +375,9 @@ elif sys.argv[1] == 'baseline':
 
     scoring = ('balanced_accuracy', 'accuracy', 'precision', 'recall')
 
-    scores = cross_validate(estimator=logit, X=stim.encoding[:, 0:2000].T, y=stim.response[0:2000],
+    print("Classifying resposnes based on stimuli")
+    scores = cross_validate(estimator=logit, X=stim.encoding[:, 2000::].T, y=stim.response[2000::],
                             cv=5, scoring=scoring, return_estimator=True, return_train_score=True)
 
-
-    save(accuracy, p.results + "/scores-baseline.pkl")
+    save(scores, p.results + "/scores-baseline.pkl")
 
