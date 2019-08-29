@@ -6,7 +6,6 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 import pandas as pd
 from plots import plot_scores
-plt.style.use('seaborn-notebook')
 
 # ===== NETWORK TUNING ===== #
 
@@ -90,36 +89,32 @@ elif sys.argv[1] == "subject-tuning":
     plt.show()
 
 
-elif sys.argv[1] == "firing rate":
+elif sys.argv[1] == "firing-rates":
 
-    net100 = load("/project/3011085.04/snn/data/raw/net-100.pkl")
-    net500 = load("/project/3011085.04/snn/data/raw/net-500.pkl")
-    net1000 = load("/project/3011085.04/snn/data/raw/net-1000.pkl")
+    # shape = (subjects, tau, neurons)
+    tmp = np.stack([load(p.raw + '/rates_1000-A-s{:02d}.pkl'.format(i+1))['fRate'] for i in np.arange(0, 10)])
 
-    r100 = net100.avg_frate()
-    r500 = net500.avg_frate()
-    r1000 = net1000.avg_frate()
+    meanRates = np.mean(tmp, axis=2)
+    means = np.mean(meanRates, axis=0)
+    errs = np.std(meanRates, axis=0)
 
-    rates = [r100, r500, r1000]
-    N = [100, 500, 1000]
+    # mean firing rates across subjects
+    _, ax = plt.subplots()
 
-    fig, ax = plt.subplots(1, 3, figsize=(10, 5))
+    xval = np.array(['NA', 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.5])
 
-    for i, data in enumerate(rates):
+    ax.plot(meanRates.T[:, 1::], '-o', color='gray', alpha=0.3, zorder=1)
+    ax.plot(meanRates.T[:, 0], '-o', color='gray', alpha=0.5, zorder=1, label="network instance")
+    ax.errorbar(x=np.arange(0, 9), y=means, yerr=errs, linewidth=2.5, zorder=2, label='mean, SD')
+    ax.set_xticks(ticks=np.arange(0, 9))
+    ax.set_xticklabels(labels=xval)
+    ax.set_ylim((2, 8))
+    ax.legend(loc='best')
 
-        ax[i].hist(data, edgecolor="white")
-        _, ymax = ax[i].get_ylim()
-        ax[i].vlines(x=np.mean(data), ymin=0, ymax=ymax/2, linestyles='--')
-        ax[i].set_title("N = {}".format(N[i]))
-        if i == 0:
-            ax[i].set_ylabel("Count (neurons)")
-        if i == 1:
-            ax[i].set_xlabel("Mean firing rate (Hz)")
+    # give an example of distribution (subject 5, gsra = 0.4)
+    _, ax = plt.subplots()
+    ax.hist(tmp[4, 4, :])
 
-    plt.suptitle("Neuronal firing rates")
-    print("Saving {}".format(rootdir + "firing_rates.png"))
-    plt.savefig(rootdir + "firing_rates.svg")
-    plt.savefig(rootdir + "firing_rates.png")
 
 elif sys.argv[1] == "example-neurons":
 
@@ -257,23 +252,216 @@ if sys.argv[1] == "adaptation-curve":
     plt.savefig(p.figures + "/adaptation_curve.svg")
     plt.savefig(p.figures + "/adaptation_curve.png")
 
+elif sys.argv[1] == "adaptation-response-decoding":
+
+    # load the baseline
+    base = load(p.results + '/scores-baseline.pkl')
+
+    # Load in actual scores
+    nsub = np.arange(0, 10)
+    fig, ax = plt.subplots(2, 3)
+
+    # loop over network size
+    for k, N in enumerate([100, 500, 1000]):
+
+        datatmp = [[] for k in ('balanced_accuracy', 'accuracy', 'precision', 'recall')]
+        data = {k: None for k in ('balanced_accuracy', 'accuracy', 'precision', 'recall')}
+        d = None
+
+        # loop over subjects
+        for i in np.arange(0, 10):
+
+            subdata = load(p.results + "/scores_{}-A-observed-s{:02d}.pkl".format(N, (i+1)))
+            d1 = []
+            d2 = []
+            d3 = []
+            d4 = []
+
+            # loop over tau values
+            for j in range(len(subdata)):
+
+                d1.append(subdata[j]['test_balanced_accuracy'])
+                d2.append(subdata[j]['test_accuracy'])
+                d3.append(subdata[j]['test_precision'])
+                d4.append(subdata[j]['test_recall'])
+
+            datatmp[0].append(np.asarray(d1))
+            datatmp[1].append(np.asarray(d2))
+            datatmp[2].append(np.asarray(d3))
+            datatmp[3].append(np.asarray(d4))
+
+        data['balanced_accuracy'] = np.asarray(datatmp[0])
+        data['accuracy'] = np.asarray(datatmp[1])
+        data['precision'] = np.asarray(datatmp[2])
+        data['recall'] = np.asarray(datatmp[3])
+
+        # mean baseline
+        # bavg = np.mean(base['test_balanced_accuracy'])
+        # bstd = np.std(base['test_balanced_accuracy'])
+        # bavg2 = np.mean(base['test_precision'])
+        # bstd2 = np.std(base['test_precision'])
+
+        # shape = (subjects, tau, crossval)
+        d = np.mean(data['balanced_accuracy'], axis=2).T
+        ers = np.std(d, axis=1)
+        avg = np.mean(d, axis=1)
+
+        print(data['balanced_accuracy'][0].shape)
+        print(d.shape)
+
+        # precision/recall
+        dpre_avg = np.mean(np.mean(data['precision'], axis=2), axis=0)
+        dpre_ers = np.std(np.mean(data['precision'], axis=2), axis=0)
+        drec_avg = np.mean(np.mean(data['recall'], axis=2), axis=0)
+        drec_ers = np.std(np.mean(data['recall'], axis=2), axis=0)
+
+        xval = np.array(['NA', 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.5])
+
+        plt.style.use("seaborn-paper")
+        colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+        # for k in ranged.shape[1]-1):
+        ax[0, k].plot(d[:, 1::], '--o', alpha=0.5, color="gray", zorder=1)
+        ax[0, k].plot(d[:, 0], '--o', color="gray", alpha=0.5, label="model instance (10)", zorder=1)
+        ax[0, k].errorbar(x=np.arange(0, 9), y=avg, yerr=ers, linewidth=2.5, label="mean/SD", zorder=2)
+        #ax[0].hlines(y=bavg, xmin=0, xmax=8, label="encoder", linestyles='-')
+        #ax[0].fill_between(x=np.arange(0, 9), y1=bavg+bstd, y2=bavg-bstd, alpha=0.3, color=colors[0], zorder=1)
+
+        #ax.hlines(y=bavg2, xmin=0, xmax=8, label="encoder", color=colors[1], linestyles='-')
+        #ax.fill_between(x=np.arange(0, 9), y1=bavg2 + bstd2, y2=bavg2 - bstd2, alpha=0.3, color=colors[1], zorder=1)
+
+        ax[0, k].set_xticks(ticks=np.arange(0, 9))
+        ax[0, k].set_xticklabels(labels=xval)
+        ax[0, k].set_ylabel("accuracy (percent)")
+        ax[0, k].set_title("Neuronal adaptation for memory (N = {})".format(N))
+        ax[0, k].legend(loc="best")
+
+        # ax2 = ax.twinx()
+        ax[1, k].errorbar(x=np.arange(0, 9), y=dpre_avg, yerr=dpre_ers, linewidth=2.5, label="precision (mean, SD)")
+        ax[1, k].errorbar(x=np.arange(0, 9), y=drec_avg, yerr=drec_ers, linewidth=2.5, label="recall (mean, SD)")
+        ax[1, k].set_ylabel("precision/recall (percent)")
+        ax[1, k].set_xlabel("spike-rate adaptation (sec)")
+        ax[1, k].set_xticks(ticks=np.arange(0, 9))
+        ax[1, k].set_xticklabels(labels=xval)
+        ax[1, k].legend(loc="best")
+        #ax2.set_ylabel("precision/recall (proportion)")
+        #ax2.tick_params(axis='y', labelcolor=colors[1])
+
+    # plt.ylim(0.9, 1)
+    plt.legend(loc='best')
+    #plt.tight_layout()
+
+    plt.savefig(p.figures + "/response-decoding.svg")
+    plt.savefig(p.figures + "/response-decoding.png")
+
+elif sys.argv[1] == 'response-decoding-dependency':
+
+    # Load in actual scores
+    nsub = np.arange(0, 10)
+    datalist = []
+    xval = np.array(['NA', 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.5])
+
+    for depth in [1, 2, 3, 4]:
+
+        datatmp = [[] for k in ('balanced_accuracy', 'accuracy', 'precision', 'recall')]
+        data = {k: None for k in ('balanced_accuracy', 'accuracy', 'precision', 'recall')}
+        d = None
+
+        for i in np.arange(0, 10):
+
+            subdata = load(p.results + "/scores_1000-A-observed-s{:02d}_{}.pkl".format((i + 1), depth))
+            d1 = []
+            d2 = []
+            d3 = []
+            d4 = []
+
+            for j in range(len(subdata)):
+                d1.append(subdata[j]['test_balanced_accuracy'])
+                d2.append(subdata[j]['test_accuracy'])
+                d3.append(subdata[j]['test_precision'])
+                d4.append(subdata[j]['test_recall'])
+
+            datatmp[0].append(np.asarray(d1))
+            datatmp[1].append(np.asarray(d2))
+            datatmp[2].append(np.asarray(d3))
+            datatmp[3].append(np.asarray(d4))
+
+        data['balanced_accuracy'] = np.asarray(datatmp[0])
+        data['accuracy'] = np.asarray(datatmp[1])
+        data['precision'] = np.asarray(datatmp[2])
+        data['recall'] = np.asarray(datatmp[3])
+
+
+        datalist.append(data)
+
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    fig, ax = plt.subplots(1, 2)
+
+    # shape = (subjects, tau, crossval)
+    d = [np.mean(l['balanced_accuracy'], axis=2).T for l in datalist]
+    ers = [np.std(dat, axis=1) for dat in d]
+    avg = [np.mean(dat, axis=1) for dat in d]
+
+    ax[0].errorbar(x=np.arange(0, 9), y=avg[0], yerr=ers[0], linewidth=2.5, label='level 1')
+    ax[0].errorbar(x=np.arange(0, 9), y=avg[1], yerr=ers[1], linewidth=2.5, label='level 2')
+    ax[0].errorbar(x=np.arange(0, 9), y=avg[2], yerr=ers[2], linewidth=2.5, label='level 3')
+    ax[0].errorbar(x=np.arange(0, 9), y=avg[3], yerr=ers[3], linewidth=2.5, label='level 4')
+
+    ax[0].set_ylabel("accuracy (prop. correct)")
+    ax[0].set_xlabel("adaptation time constant (sec)")
+    ax[0].set_xticks(ticks=np.arange(0, 9))
+    ax[0].set_xticklabels(labels=xval)
+
+    ax[0].legend(loc='best')
+
+    # shape = (subjects, tau, crossval)
+    d = [np.mean(l['precision'], axis=2).T for l in datalist]
+    ers = [np.std(dat, axis=1) for dat in d]
+    avg = [np.mean(dat, axis=1) for dat in d]
+
+
+    ax[1].errorbar(x=np.arange(0, 9), y=avg[0], yerr=ers[0], linewidth=2.5, color=colors[0])
+    ax[1].errorbar(x=np.arange(0, 9), y=avg[1], yerr=ers[1], linewidth=2.5, color=colors[1])
+    ax[1].errorbar(x=np.arange(0, 9), y=avg[2], yerr=ers[2], linewidth=2.5, color=colors[2])
+    ax[1].errorbar(x=np.arange(0, 9), y=avg[3], yerr=ers[3], linewidth=2.5, color=colors[3])
+
+    # shape = (subjects, tau, crossval)
+    d = [np.mean(l['recall'], axis=2).T for l in datalist]
+    ers = [np.std(dat, axis=1) for dat in d]
+    avg = [np.mean(dat, axis=1) for dat in d]
+
+    ax[1].errorbar(x=np.arange(0, 9), linestyle='--', y=avg[0], yerr=ers[0], linewidth=3, color=colors[0], label='level 1')
+    ax[1].errorbar(x=np.arange(0, 9), linestyle='--', y=avg[1], yerr=ers[1], linewidth=3, color=colors[1], label='level 2')
+    ax[1].errorbar(x=np.arange(0, 9), linestyle='--', y=avg[2], yerr=ers[2], linewidth=3, color=colors[2], label='level 3')
+    ax[1].errorbar(x=np.arange(0, 9), linestyle='--', y=avg[3], yerr=ers[3], linewidth=3, color=colors[3], label='level 4')
+
+    ax[1].set_ylabel("precision/recall (prop.)")
+    ax[1].set_xlabel("adaptation time constant (sec)")
+    ax[1].set_xticks(ticks=np.arange(0, 9))
+    ax[1].set_xticklabels(labels=xval)
+
+    plt.suptitle("Accuracy by dependency length")
+
+    # save
+    plt.savefig(p.figures + "/response-decoding-dependency.svg")
+    plt.savefig(p.figures + "/response-decoding-dependency.png")
+
 elif sys.argv[1] == "stimulus-buildup":
 
     d = np.asarray(load(p.results + "/stimulus-decoding_old-observed_s01.pkl"))
-    d0 = np.asarray(load(p.results + "/stimulus-decoding_old-permuted_s01.pkl"))
+    d0 = np.asarray(load(p.results + "/stimulus-decoding_new-observed_s01.pkl"))
 
-    dm = np.mean(d, axis=0)
-    dm0 = np.mean(d0, axis=0)
-    ds = np.std(d, axis=0)
-    ds0 = np.std(d0, axis=0)
+    dm = np.mean(d, axis=1)
+    dm0 = np.mean(d0, axis=1)
+    ds = np.std(d, axis=1)
+    ds0 = np.std(d0, axis=1)
 
-    x = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
+    xval = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
 
     plt.figure()
-    plt.fill_between(x=x, y1=dm + ds, y2=dm - ds, alpha=0.1)
-    plt.fill_between(x=x, y1=dm0 + ds0, y2=dm0 - ds0, alpha=0.1)
-    plt.plot(x, dm, '--o', label="observed")
-    plt.plot(x, dm0, '--o', label="permuted")
+    plt.errorbar(x=np.arange(0, 5), y=dm, yerr=ds, linewidth=1, label="mean (sd)", zorder=1)
+    #plt.errorbar(x=np.arange(0, 5), y=dm0, yerr=ds0, linewidth=1, label="mean (sd)", zorder=2)
+    plt.xticks(ticks=np.arange(0, 5), labels=xval)
     plt.ylim(0, 1.1)
     plt.legend(loc="best")
     plt.show()
