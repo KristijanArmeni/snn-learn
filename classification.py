@@ -8,6 +8,7 @@ plt.style.use('seaborn-notebook')
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import learning_curve, validation_curve, cross_val_score, cross_validate
+from sklearn.metrics import make_scorer, cohen_kappa_score
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 
 # Own modules
@@ -236,7 +237,7 @@ elif sys.argv[1] == "adaptation-curve":
     N = 1000
     targetsOnly = False
     balanceDs = False
-    level = 4
+    level = None
 
     # select targets only
     print("Subselect == {}".format(targetsOnly))
@@ -279,6 +280,15 @@ elif sys.argv[1] == "adaptation-curve":
         states = {"A": x_r}
         responses = {"observed": y_rsp}
 
+        # define scoring functions
+        scoring = {
+            'balanced_accuracy': 'balanced_accuracy',
+            'kappa': make_scorer(cohen_kappa_score),
+            'accuracy': 'accuracy',
+            'precision': 'precision',
+            'recall': 'recall'
+        }
+
         # loop over conditions
         for i, key_x in enumerate(states):
 
@@ -300,7 +310,7 @@ elif sys.argv[1] == "adaptation-curve":
                     x_norm = scaler.fit_transform(X=x[j, :, :])  # shape=(n_samples, n_features)
 
                     accuracy = cross_validate(estimator=logit, X=x_norm, y=y,
-                                              cv=5, scoring=('balanced_accuracy', 'accuracy', 'precision', 'recall'),
+                                              cv=5, scoring=scoring,
                                               return_train_score=True, return_estimator=True)
 
                     scores.append(accuracy)
