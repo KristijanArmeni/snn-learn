@@ -4,12 +4,11 @@ import numpy as np
 import sys
 import gc
 from matplotlib import pyplot as plt
-plt.style.use('seaborn-notebook')
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import learning_curve, validation_curve, cross_val_score, cross_validate
 from sklearn.metrics import make_scorer, cohen_kappa_score
-from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
+from sklearn.linear_model import LogisticRegression
 
 # Own modules
 from util import load, save, Paths
@@ -234,7 +233,7 @@ elif sys.argv[1] == "stimulus-decoding-adaptation":
 
 elif sys.argv[1] == "adaptation-curve":
 
-    N = 1000
+    N = 100
     targetsOnly = False
     balanceDs = False
     level = None
@@ -315,18 +314,25 @@ elif sys.argv[1] == "adaptation-curve":
 
                     scores.append(accuracy)
 
+                # construct the name for saving
                 savename = None
+                suffix = None
 
                 if targetsOnly and not balanceDs:
-                    savename = "/scores_{}-{}-{}-s{:02d}_tgt.pkl".format(N, key_x, key_y, k + 1)
+                    suffix = 'tgt'
                 elif balanceDs and not targetsOnly:
-                    savename = "/scores_{}-{}-{}-s{:02d}_bal.pkl".format(N, key_x, key_y, k + 1)
+                    suffix = 'bal'
                 elif balanceDs and targetsOnly:
-                    savename = "/scores_{}-{}-{}-s{:02d}_tgtbal.pkl".format(N, key_x, key_y, k + 1)
+                    suffix = 'tgtbal'
                 elif not balanceDs and not targetsOnly and level is None:
-                    savename = "/scores_{}-{}-{}-s{:02d}.pkl".format(N, key_x, key_y, k + 1)
+                    suffix = None
                 elif not balanceDs and not targetsOnly and level is not None:
-                    savename = "/scores_{}-{}-{}-s{:02d}_{}.pkl".format(N, key_x, key_y, k + 1, level)
+                    suffix = "{}".format(level)
+
+                if suffix is not None:
+                    savename = "/scores_{}-{}-{}-s{:02d}_{}.pkl".format(N, key_x, key_y, k + 1, suffix)
+                else:
+                    savename = "/scores_{}-{}-{}-s{:02d}.pkl".format(N, key_x, key_y, k + 1)
 
                 print("Saving {}".format(p.results + savename))
                 save(scores, p.results + savename)
