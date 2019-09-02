@@ -104,12 +104,18 @@ elif sys.argv[1] == "firing-rates":
     xval = np.array(['NA', 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.5])
 
     ax.plot(meanRates.T[:, 1::], '-o', color='gray', alpha=0.3, zorder=1)
-    ax.plot(meanRates.T[:, 0], '-o', color='gray', alpha=0.5, zorder=1, label="network instance")
+    ax.plot(meanRates.T[:, 0], '-o', color='gray', alpha=0.5, zorder=1, label="network instance (10)")
     ax.errorbar(x=np.arange(0, 9), y=means, yerr=errs, linewidth=2.5, zorder=2, label='mean, SD')
     ax.set_xticks(ticks=np.arange(0, 9))
     ax.set_xticklabels(labels=xval)
     ax.set_ylim((2, 8))
+    ax.set_ylabel('network firing rate (Hz)')
+    ax.set_xlabel('spike-rate adaptation time constant (sec)')
+    ax.set_title('Firing rates (N = 1000)')
     ax.legend(loc='best')
+
+    plt.savefig(p.figures + '/firing_rates.png')
+    plt.savefig(p.figures + '/firing_rates.svg')
 
     # give an example of distribution (subject 5, gsra = 0.4)
     _, ax = plt.subplots()
@@ -264,8 +270,8 @@ elif sys.argv[1] == "adaptation-response-decoding":
     # loop over network size
     for k, N in enumerate([100, 500, 1000]):
 
-        datatmp = [[] for k in ('balanced_accuracy', 'accuracy', 'precision', 'recall')]
-        data = {k: None for k in ('balanced_accuracy', 'accuracy', 'precision', 'recall')}
+        datatmp = [[] for k in ('balanced_accuracy', 'kappa', 'precision', 'recall')]
+        data = {k: None for k in ('balanced_accuracy', 'kappa', 'precision', 'recall')}
         d = None
 
         # loop over subjects
@@ -281,7 +287,7 @@ elif sys.argv[1] == "adaptation-response-decoding":
             for j in range(len(subdata)):
 
                 d1.append(subdata[j]['test_balanced_accuracy'])
-                d2.append(subdata[j]['test_accuracy'])
+                d2.append(subdata[j]['test_kappa'])
                 d3.append(subdata[j]['test_precision'])
                 d4.append(subdata[j]['test_recall'])
 
@@ -291,7 +297,7 @@ elif sys.argv[1] == "adaptation-response-decoding":
             datatmp[3].append(np.asarray(d4))
 
         data['balanced_accuracy'] = np.asarray(datatmp[0])
-        data['accuracy'] = np.asarray(datatmp[1])
+        data['kappa'] = np.asarray(datatmp[1])
         data['precision'] = np.asarray(datatmp[2])
         data['recall'] = np.asarray(datatmp[3])
 
@@ -305,9 +311,6 @@ elif sys.argv[1] == "adaptation-response-decoding":
         d = np.mean(data['balanced_accuracy'], axis=2).T
         ers = np.std(d, axis=1)
         avg = np.mean(d, axis=1)
-
-        print(data['balanced_accuracy'][0].shape)
-        print(d.shape)
 
         # precision/recall
         dpre_avg = np.mean(np.mean(data['precision'], axis=2), axis=0)
