@@ -260,12 +260,11 @@ if sys.argv[1] == "adaptation-curve":
 
 elif sys.argv[1] == "adaptation-response-decoding":
 
-    # load the baseline
-    base = load(p.results + '/scores-baseline.pkl')
+    plt.style.use('default')
 
     # Load in actual scores
     nsub = np.arange(0, 10)
-    fig, ax = plt.subplots(2, 3)
+    fig, ax = plt.subplots(2, 3, sharey='all', figsize=(18, 7))
 
     # loop over network size
     for k, N in enumerate([100, 500, 1000]):
@@ -307,8 +306,12 @@ elif sys.argv[1] == "adaptation-response-decoding":
         # bavg2 = np.mean(base['test_precision'])
         # bstd2 = np.std(base['test_precision'])
 
+        #----- PLOT -----#
+
+        score = 'kappa'
+
         # shape = (subjects, tau, crossval)
-        d = np.mean(data['balanced_accuracy'], axis=2).T
+        d = np.mean(data[score], axis=2).T
         ers = np.std(d, axis=1)
         avg = np.mean(d, axis=1)
 
@@ -334,15 +337,17 @@ elif sys.argv[1] == "adaptation-response-decoding":
         #ax.fill_between(x=np.arange(0, 9), y1=bavg2 + bstd2, y2=bavg2 - bstd2, alpha=0.3, color=colors[1], zorder=1)
 
         ax[0, k].set_xticks(ticks=np.arange(0, 9))
-        ax[0, k].set_xticklabels(labels=xval)
-        ax[0, k].set_ylabel("accuracy (percent)")
+        ax[0, k].get_xaxis().set_ticklabels([])
+        if k == 0:
+            ax[0, k].set_ylabel("{} (percent)".format(score))
         ax[0, k].set_title("Neuronal adaptation for memory (N = {})".format(N))
         ax[0, k].legend(loc="best")
 
         # ax2 = ax.twinx()
-        ax[1, k].errorbar(x=np.arange(0, 9), y=dpre_avg, yerr=dpre_ers, linewidth=2.5, label="precision (mean, SD)")
-        ax[1, k].errorbar(x=np.arange(0, 9), y=drec_avg, yerr=drec_ers, linewidth=2.5, label="recall (mean, SD)")
-        ax[1, k].set_ylabel("precision/recall (percent)")
+        ax[1, k].errorbar(x=np.arange(0, 9), y=dpre_avg, yerr=dpre_ers, color=colors[0], linestyle='--', linewidth=2.5, label="precision (mean, SD)")
+        ax[1, k].errorbar(x=np.arange(0, 9), y=drec_avg, yerr=drec_ers, color=colors[0], linestyle='-', linewidth=2.5, label="recall (mean, SD)")
+        if k == 0:
+            ax[1, k].set_ylabel("precision/recall (percent)")
         ax[1, k].set_xlabel("spike-rate adaptation (sec)")
         ax[1, k].set_xticks(ticks=np.arange(0, 9))
         ax[1, k].set_xticklabels(labels=xval)
@@ -354,8 +359,8 @@ elif sys.argv[1] == "adaptation-response-decoding":
     plt.legend(loc='best')
     #plt.tight_layout()
 
-    plt.savefig(p.figures + "/response-decoding.svg")
-    plt.savefig(p.figures + "/response-decoding.png")
+    plt.savefig(p.figures + "/response-decoding_sharey.svg")
+    plt.savefig(p.figures + "/response-decoding_sharey.png")
 
 elif sys.argv[1] == 'response-decoding-dependency':
 
@@ -366,8 +371,8 @@ elif sys.argv[1] == 'response-decoding-dependency':
 
     for depth in [1, 2, 3, 4]:
 
-        datatmp = [[] for k in ('balanced_accuracy', 'accuracy', 'precision', 'recall')]
-        data = {k: None for k in ('balanced_accuracy', 'accuracy', 'precision', 'recall')}
+        datatmp = [[] for k in ('balanced_accuracy', 'kappa', 'precision', 'recall')]
+        data = {k: None for k in ('balanced_accuracy', 'kappa', 'precision', 'recall')}
         d = None
 
         for i in np.arange(0, 10):
@@ -380,7 +385,7 @@ elif sys.argv[1] == 'response-decoding-dependency':
 
             for j in range(len(subdata)):
                 d1.append(subdata[j]['test_balanced_accuracy'])
-                d2.append(subdata[j]['test_accuracy'])
+                d2.append(subdata[j]['test_kappa'])
                 d3.append(subdata[j]['test_precision'])
                 d4.append(subdata[j]['test_recall'])
 
@@ -390,7 +395,7 @@ elif sys.argv[1] == 'response-decoding-dependency':
             datatmp[3].append(np.asarray(d4))
 
         data['balanced_accuracy'] = np.asarray(datatmp[0])
-        data['accuracy'] = np.asarray(datatmp[1])
+        data['kappa'] = np.asarray(datatmp[1])
         data['precision'] = np.asarray(datatmp[2])
         data['recall'] = np.asarray(datatmp[3])
 
@@ -400,8 +405,13 @@ elif sys.argv[1] == 'response-decoding-dependency':
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
     fig, ax = plt.subplots(1, 2)
 
+
+    #----- PLOT -----#
+
+    score = 'kappa'
+
     # shape = (subjects, tau, crossval)
-    d = [np.mean(l['balanced_accuracy'], axis=2).T for l in datalist]
+    d = [np.mean(l['kappa'], axis=2).T for l in datalist]
     ers = [np.std(dat, axis=1) for dat in d]
     avg = [np.mean(dat, axis=1) for dat in d]
 
@@ -410,7 +420,7 @@ elif sys.argv[1] == 'response-decoding-dependency':
     ax[0].errorbar(x=np.arange(0, 9), y=avg[2], yerr=ers[2], linewidth=2.5, label='level 3')
     ax[0].errorbar(x=np.arange(0, 9), y=avg[3], yerr=ers[3], linewidth=2.5, label='level 4')
 
-    ax[0].set_ylabel("accuracy (prop. correct)")
+    ax[0].set_ylabel("kappa (prop. correct)")
     ax[0].set_xlabel("adaptation time constant (sec)")
     ax[0].set_xticks(ticks=np.arange(0, 9))
     ax[0].set_xticklabels(labels=xval)
@@ -448,6 +458,32 @@ elif sys.argv[1] == 'response-decoding-dependency':
     # save
     plt.savefig(p.figures + "/response-decoding-dependency.svg")
     plt.savefig(p.figures + "/response-decoding-dependency.png")
+
+    #----- SHAPE DATAFRAME -----#
+
+    df = pd.DataFrame(np.zeros(shape=(4*10*9, 6)), columns=['subject', 'tau', 'level', 'kappa', 'precision', 'recall'])
+
+    dat = np.stack(d).reshape((4*9*10))
+
+    i = 0
+    for subject in np.arange(0, 10):
+        for tau_i, tau in enumerate(xval):
+            for level in np.arange(0, 4):
+
+                df.loc[i, 'subject'] = subject
+                df.loc[i, 'tau'] = tau
+                df.loc[i, 'level'] = level + 1
+                df.loc[i, 'kappa'] = d[level][tau_i, subject]
+
+                i = i+1
+
+    df['tau'].astype('category')
+    df['level'].astype('category')
+    ax = sns.catplot(x='level', y='kappa', hue='tau', palette='ch:.25', kind='bar', data=df, legend_out=True)
+    ax.set(xlabel='distance', xticklabels=['1', '2', '3', '4'])
+    ax._legend.set_title('tau (sec)')
+    ax.savefig(p.figures + '/response-decoding-dependency-bar.png')
+    ax.savefig(p.figures + '/response-decoding-dependency-bar.svg')
 
 elif sys.argv[1] == "stimulus-buildup":
 
