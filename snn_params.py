@@ -26,7 +26,7 @@ class Params(object):
             "tmax": kwargs.get("tmax", 0.6),
             "dt": kwargs.get("dt", 0.001),
             "t": (np.arange(start=kwargs.get("tmin", 0)*1000,
-                            stop=(kwargs.get("tmax", 0.6)*1000)+1,
+                            stop=(kwargs.get("tmax", 0.6)*1000),
                             step=kwargs.get("dt", 0.001)*1000)
                   )/1000
             }
