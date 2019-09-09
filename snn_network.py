@@ -75,7 +75,7 @@ class SNN(object):
         t               = 1d array, time axis for simulation
         downsample      = int, downsampling factor indicating a step size for downsampling t[::downsample]
         """
-        t_orig = t
+        t_orig = np.copy(t)
 
         if downsample is not False:
             t = t[::downsample]  # take evenly spaced samples from the original timeaxis
