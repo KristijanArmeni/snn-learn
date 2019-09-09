@@ -128,7 +128,7 @@ if sys.argv[1] == "development":
 
         # Run averging over selected temporal windows
         for i, toi in enumerate(tois):
-            x[i, :, :] = net.avg_states(toi=toi)  # average membrane voltage
+            x[i, :, :] = net.sample_states(toi=toi)  # average membrane voltage
 
         print("Saving output ...")
         # save(net, p.raw + "/net-{}.pkl".format(net.neurons["N"]))
@@ -148,13 +148,8 @@ elif sys.argv[1] == "main-simulation":
     N = 1000
     resetting = ["sentence"]
     suffix = []
-    values = [0.4]  # if 'net.syn_adapt' is set to False, this has not effect
-
+    tau_values = [0.0, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.5]  # tau_gsra == 0.001 simply turns off the adaptation parameter
     time_windows = [[0, 0.05], [0, 0.01], [0.01, 0.02], [0.02, 0.03], [0.03, 0.04], [0.04, 0.05]]
-
-    adapt = True
-    if sys.argv[2] == "noadapt":
-        adapt = False  # ONLY AS CONTROL, MAKE SURE TO UNCHECK THIS OTHERISE
 
     # initialize parameters
     parameters = Params(tmin=0, tmax=0.05)
@@ -163,13 +158,13 @@ elif sys.argv[1] == "main-simulation":
     step = parameters.step_current(t=parameters.sim["t"], on=0, off=0.05, amp=4e-9)
 
     # network instance
-    net = SNN(params=parameters, n_neurons=1000, input_dim=8, output_dim=2, syn_adapt=adapt)
+    net = SNN(params=parameters, n_neurons=N, input_dim=8, output_dim=2, syn_adapt=True)
 
     for kk in np.arange(0, 10):
 
         # select seeds
         net.w["input_seed"] = parameters.w["input-seeds"][kk]
-        net.w["recurrent_seed"] = parameters.w["recurrent"][kk]
+        net.w["recurrent_seed"] = parameters.w["recurrent-seeds"][kk]
 
         for k, reset in enumerate(resetting):
 
@@ -182,20 +177,25 @@ elif sys.argv[1] == "main-simulation":
                 infix = "B"
 
             # preallocate array for storing states
-            x = np.ndarray(shape=(len(values), len(time_windows), full_ds.sequence.shape[0], N))
+            x = np.ndarray(shape=(len(tau_values), len(time_windows), full_ds.sequence.shape[0], N))
 
             # variable for storing tuning parameters
-            r = {"appInn": np.ndarray(shape=len(values,)),
-                 "appRec": np.ndarray(shape=len(values,)),
-                 "fRate-tune": np.ndarray(shape=(len(values), N)),
-                 "fRate": np.ndarray(shape=(len(values), N))}
+            r = {"appInn": np.ndarray(shape=(len(tau_values),)),
+                 "appRec": np.ndarray(shape=(len(tau_values),)),
+                 "fRate-tune": np.ndarray(shape=(len(tau_values), N)),
+                 "fRate": np.ndarray(shape=(len(tau_values), N))}
 
-            for j, tau_gsra in enumerate(values):
+            for j, tau_gsra in enumerate(tau_values):
+
+                if tau_gsra == 0.0:
+                    net.syn_adapt = False  # turn off adaptation term if tau_gsra is set to 0
+                else:
+                    net.syn_adapt = True   # make sure adaptation term is on otherwise
 
                 # set the gsra and tune the network
                 net.gsra["tau"] = tau_gsra
 
-                tune_params_file = dirs.raw + "/params_{}-{}-s{:02d}.csv".format(N, infix, kk+1)
+                tune_params_file = dirs.raw + "/tuning_{}-{}-s{:02d}-{}.pkl".format(N, infix, kk+1, tau_gsra)
 
                 # ===== RATE TUNING ===== #
                 if os.path.isfile(tune_params_file):
@@ -206,15 +206,16 @@ elif sys.argv[1] == "main-simulation":
                     net.w["recurrent_scaling"] = tune_params["recurrent"][1]
 
                 else:
-                    print("\n=====Tuning the network [N = {}, tau = {}, subject {}]=====".format(N, tau_gsra, kk))
+                    print("\n=====Tuning the network [N = {}, tau = {}, subject {}]=====".format(N, tau_gsra, kk+1))
+                    print("Adaptation term == ", net.syn_adapt)
 
                     # creates values in net.wscale to be used below
                     sel = net.rate_tuning2(parameters=parameters, input_current=step, reset_states=reset, dataset=tuning_ds,
-                                           init_scales=[1.8, 3e-9],
-                                           targets=[2, 5], margins=[0.2, 0.5],
+                                           init_scales=[1.8, 4e-9],
+                                           targets=[2, 5], increments=(0.2, 0.4e-9), margins=[0.2, 0.5],
                                            warmup=True, warmup_size=0.375,
-                                           N_max=25, skip_input=False,
-                                           tag="[N = {}, tau = {}, subject {}]".format(N, tau_gsra, kk))
+                                           N_max=40, skip_input=False,
+                                           tag="[N = {}, tau = {}, subject {}]".format(N, tau_gsra, kk+1))
 
                     print(net.w["input_scaling"], net.w["recurrent_scaling"])
                     # store these params for later on
@@ -223,7 +224,8 @@ elif sys.argv[1] == "main-simulation":
                     r["fRate-tune"][j, :] = net.avg_frate(stim_time=0.05, samples=None)
 
                 # ===== SIMULATION ===== #
-                print("\n[{:d}] Running network of N = {} with tau_gsra = {:f}".format(k, N, tau_gsra))
+                print("\n[s{:02d}] Running network of N = {} with tau_gsra = {:f}".format(kk+1, N, tau_gsra))
+                print("Adaptation term == ", net.syn_adapt)
 
                 # define connectivity matrices
                 net.config_input_weights(mean=0.4, density=0.50)
@@ -256,10 +258,10 @@ elif sys.argv[1] == "main-simulation":
                 if not os.path.isfile(tune_params_file):
                     save(sel, tune_params_file)
 
-            print("Saving output ...")
+            print("Saving {}-{}-s{:02d} output to {}...".format(N, infix, kk+1, dirs.interim + '/newtime'))
 
             # save network parameters
-            net.params_to_csv(path=dirs.interim + "/params_{}-{}-s{:02d}.csv".format(N, infix, kk+1))
+            net.params_to_csv(path=dirs.interim + '/newtime' + "/params_{}-{}-s{:02d}.csv".format(N, infix, kk+1))
 
-            np.save(file=dirs.interim + "/states_{}-{}-s{:02d}".format(N, infix, kk+1), arr=x)
-            save(r, dirs.raw + "/rates_{}-{}-s{:02d}.pkl".format(N, infix, kk+1))
+            np.save(file=dirs.interim + '/newtime' + "/states_{}-{}-s{:02d}".format(N, infix, kk+1), arr=x)
+            save(r, dirs.raw + '/newtime' + "/rates_{}-{}-s{:02d}.pkl".format(N, infix, kk+1))
