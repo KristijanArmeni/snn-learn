@@ -4,6 +4,7 @@ import numpy as np
 import sys
 import gc
 from matplotlib import pyplot as plt
+import os
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import learning_curve, validation_curve, cross_val_score, cross_validate
@@ -49,6 +50,20 @@ lev[np.isin(lev, np.array([1, 2]))] = 1
 lev[np.isin(lev, np.array([3, 4]))] = 2
 lev[np.isin(lev, np.array([5, 6]))] = 3
 lev[np.isin(lev, np.array([7, 8]))] = 4
+levels = np.asarray(lev)
+
+
+# Balance datasets
+maxsamples = np.sum(levels[2000::] == 4)  # the max number of samples should correspond to the number of level 4 positions in the train set
+levIds = [np.sort(np.random.RandomState(level_seed[1]).choice(a=np.where(levels == level_seed[0])[0][np.where(levels == level_seed[0])[0]>2000],
+                                                              size=maxsamples))
+                                                              for level_seed in [(1, 12), (2, 30), (3, 50), (4, 70)]]
+
+# quit test that it works
+assert np.sum(levels[levIds[0]] == 1) == maxsamples
+assert np.sum(levels[levIds[1]] == 2) == maxsamples
+assert np.sum(levels[levIds[2]] == 3) == maxsamples
+assert np.sum(levels[levIds[3]] == 4) == maxsamples
 
 if sys.argv[1] == "validation-curve-response":
 
@@ -121,7 +136,8 @@ elif sys.argv[1] == "validation-curve-stim":
     # ===== LOGISTIC REGRESSION: STIMULUS IDENTITY, VALIDATION CURVE ===== #
 
     scaler = StandardScaler()
-    logit = LogisticRegression(fit_intercept=True, multi_class="multinomial", max_iter=300, class_weight="balanced",                                  solver="newton-cg", penalty="l2")
+    logit = LogisticRegression(fit_intercept=True, multi_class="multinomial", max_iter=300, class_weight="balanced",
+                               solver="newton-cg", penalty="l2")
     range = np.logspace(-4, 4, 9, base=10)
 
     for i, x in enumerate([x100, x500, x1000]):
@@ -233,26 +249,30 @@ elif sys.argv[1] == "stimulus-decoding-adaptation":
 
 elif sys.argv[1] == "adaptation-curve":
 
-    N = 100
+    N = 1000
     targetsOnly = False
     balanceDs = False
-    level = None
+    level = 1
 
     # select targets only
-    print("Subselect == {}".format(targetsOnly))
+    print("TargetsOnly == {}".format(targetsOnly))
     print("Balance == {}".format(balanceDs))
     print("Level == {}".format(level))
 
     # subselect features if necessary
     selection = None
-    if targetsOnly and not balanceDs:
+    if (level is None) and targetsOnly and not balanceDs:
         selection = tgt[tgt > 2000] - 2000
-    elif balanceDs and not targetsOnly:
+    elif (level is None) and balanceDs and not targetsOnly:
         selection = sel[sel > 2000] - 2000
-    elif balanceDs and targetsOnly:
+    elif (level is None) and balanceDs and targetsOnly:
         selection = tgtsel[tgtsel > 2000] - 2000
-    elif level is not None:
+    elif level is not None and not balanceDs:
         selection = np.isin(lev[2000::], level)
+    elif (level is not None) and targetsOnly and not balanceDs:
+        selection = np.isin(lev[tgt][2000::])
+    elif (level is not None) and balanceDs:
+        selection = levIds[level-1]
 
     # load data; shape = (tau, time_window, trial, neuron)
     subjects = np.arange(0, 10)
@@ -265,7 +285,7 @@ elif sys.argv[1] == "adaptation-curve":
     for k in subjects:
 
         print("Running subject s{:02d} (N = {})".format(k+1, N))
-        fname = p.interim + "/states_{}-A-s{:02d}.npy".format(N, subjects[k]+1)
+        fname = os.path.join(p.interim, "newtime", "states_{}-A-s{:02d}.npy".format(N, subjects[k]+1))
 
         if selection is None:
             print("Loading {} ...".format(fname))
@@ -275,6 +295,9 @@ elif sys.argv[1] == "adaptation-curve":
             print("loading {} and applying selection ...".format(fname))
             x_r = np.load(fname)[:, :, selection, :]
             y_rsp = (stim.response[2000::])[selection]
+
+        # make a quick test
+        assert np.sum(levels[selection + 2000] == level) == maxsamples
 
         states = {"A": x_r}
         responses = {"observed": y_rsp}
@@ -328,6 +351,8 @@ elif sys.argv[1] == "adaptation-curve":
                     suffix = None
                 elif not balanceDs and not targetsOnly and level is not None:
                     suffix = "{}".format(level)
+                elif balanceDs and not targetsOnly and level is not None:
+                    suffix = "{}_bal".format(level)
 
                 if suffix is not None:
                     savename = "/scores_{}-{}-{}-s{:02d}_{}.pkl".format(N, key_x, key_y, k + 1, suffix)
