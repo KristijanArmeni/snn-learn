@@ -296,8 +296,9 @@ elif sys.argv[1] == "adaptation-curve":
             x_r = np.load(fname)[:, :, selection, :]
             y_rsp = (stim.response[2000::])[selection]
 
-        # make a quick test
-        assert np.sum(levels[selection + 2000] == level) == maxsamples
+        # make a quick test that balancing works
+        if balanceDs:
+            assert np.sum(levels[selection + 2000] == level) == maxsamples
 
         states = {"A": x_r}
         responses = {"observed": y_rsp}
@@ -359,8 +360,8 @@ elif sys.argv[1] == "adaptation-curve":
                 else:
                     savename = "/scores_{}-{}-{}-s{:02d}.pkl".format(N, key_x, key_y, k + 1)
 
-                print("Saving {}".format(p.results + savename))
-                save(scores, p.results + savename)
+                print("Saving {}".format(os.path.join(p.results, 'newtime', savename)))
+                save(scores, os.path.join(p.results, 'newtime', savename))
 
             del x
             gc.collect()
