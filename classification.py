@@ -356,9 +356,9 @@ elif sys.argv[1] == "adaptation-curve":
                     suffix = "{}_bal".format(level)
 
                 if suffix is not None:
-                    savename = "/scores_{}-{}-{}-s{:02d}_{}.pkl".format(N, key_x, key_y, k + 1, suffix)
+                    savename = "scores_{}-{}-{}-s{:02d}_{}.pkl".format(N, key_x, key_y, k + 1, suffix)
                 else:
-                    savename = "/scores_{}-{}-{}-s{:02d}.pkl".format(N, key_x, key_y, k + 1)
+                    savename = "scores_{}-{}-{}-s{:02d}.pkl".format(N, key_x, key_y, k + 1)
 
                 print("Saving {}".format(os.path.join(p.results, 'newtime', savename)))
                 save(scores, os.path.join(p.results, 'newtime', savename))
