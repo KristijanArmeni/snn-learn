@@ -19,6 +19,8 @@ dirs = Paths()
 # ===== PARAMETERS ===== #
 
 parameters = Params(tmin=0, tmax=0.05)
+# write parameters to csv's
+parameters.to_csv(path=os.path.join(dirs.home, "doc", "tables"))
 
 # ===== LOAD THE DATASET ===== #
 
@@ -160,7 +162,7 @@ elif sys.argv[1] == "main-simulation":
     # network instance
     net = SNN(params=parameters, n_neurons=N, input_dim=8, output_dim=2, syn_adapt=True)
 
-    for kk in np.arange(0, 10):
+    for kk in np.arange(0, 10)[9::]:
 
         # select seeds
         net.w["input_seed"] = parameters.w["input-seeds"][kk]
