@@ -3,6 +3,7 @@ import numpy as np
 
 # visualization
 from matplotlib import pyplot as plt
+import matplotlib.gridspec as gridspec
 from stimuli import generate_sequence, encode_input, Dataset
 from snn_params import Params
 from snn_network import SNN
@@ -52,31 +53,27 @@ net.gsra["tau"] = 0.1
 V2, spikes2, count2, gsra2, gref2, I_rec2 = net.forward(I_in=step, states=states, dt=parameters.sim["dt"])
 
 # plot spikes
-V_plot0 = V0
-V_plot0[:, spikes0[0, :]] = -0.02
+V_plot0 = np.copy(V0)*1e3  # conver to mV
+V_plot0[:, spikes0[0, :]] = 0.02*1e3
 
 gsra0[:, :] = 0
 gref0[:, :] = 0
 
-V_plot = V
-V_plot[:, spikes[0, :]] = -0.02  # make spikes more obvious
-V_plot2 = V2
-V_plot2[:, spikes2[0, :]] = -0.02
+V_plot = np.copy(V)*1e3  # convert to mV
+V_plot[:, spikes[0, :]] = 0.02*1e3  # make spikes more obvious
+V_plot2 = np.copy(V2)*1e3  # convert to mV
+V_plot2[:, spikes2[0, :]] = 0.02*1e3
 
 # draw the figures
 
-fig = plt.figure(constrained_layout=True)
-widths = [1, 1, 2]
-heights = [1, 1, 1]
-spec = fig.add_gridspec(ncols=3, nrows=3, width_ratios=widths,
-                          height_ratios=heights)
+plt.style.use("seaborn-talk")
 
-plt.style.use("default")
-
-fig, ax = plt.subplots(nrows=3, ncols=3, figsize=(16, 4), sharex='col')
+fig, ax = plt.subplots(nrows=3, ncols=3, figsize=(15, 6), sharex='col')
 ax[0, 0].plot(net.sim["t"], V_plot0[0, :])
 ax[0, 0].get_xaxis().set_visible(False)
-#ax[0, 0].set_ylabel("membrane potential (mV)")
+ax[0, 0].tick_params(axis='both', which='major', labelsize=14)
+ax[0, 0].tick_params(axis='both', which='major', labelsize=16)
+
 
 ax[0, 1].plot(net.sim["t"], V_plot2[0, :], label="tau = {:f} msec".format(net.gsra["tau"]*1000))
 ax[0, 1].get_xaxis().set_visible(False)
@@ -85,55 +82,58 @@ ax[0, 2].plot(net.sim["t"], V_plot[0, :], label="tau = {:f} msec".format(net.gsr
 ax[0, 2].get_xaxis().set_visible(False)
 ax[0, 2].get_yaxis().set_visible(False)
 
-ax[1, 1].plot(net.sim["t"], gsra2[0, :], label="gsra")
+ax[1, 1].plot(net.sim["t"], gsra2[0, :]*1e9, label="gsra")
 ax[1, 1].get_xaxis().set_visible(False)
 ax[1, 1].get_yaxis().set_visible(False)
 
-ax[1, 1].plot(net.sim["t"], gref2[0, :], label="gref")
+ax[1, 1].plot(net.sim["t"], gref2[0, :]*1e9, label="gref")
 ax[1, 1].get_xaxis().set_visible(False)
 ax[1, 1].get_yaxis().set_visible(False)
 ax[1, 1].legend(loc="best")
 
-ax[1, 0].plot(net.sim["t"], gsra0[0, :], label="gsra")
+ax[1, 0].plot(net.sim["t"], gsra0[0, :]*1e9, label="gsra")
 ax[1, 0].get_xaxis().set_visible(False)
+ax[1, 0].tick_params(axis='both', which='major', labelsize=14)
 
-ax[1, 0].plot(net.sim["t"], gref0[0, :], label="gref")
+ax[1, 0].plot(net.sim["t"], gref0[0, :]*1e9, label="gref")
 ax[1, 0].get_xaxis().set_visible(False)
 #ax[1, 0].set_ylabel("conductance(S)")
 ax[1, 0].set_ylim(ax[1, 1].get_ylim())
 ax[1, 0].legend(loc="best")
 
-ax[1, 2].plot(net.sim["t"], gsra[0, :], label="gsra")
+ax[1, 2].plot(net.sim["t"], gsra[0, :]*1e9, label="gsra")
 ax[1, 2].get_xaxis().set_visible(False)
 ax[1, 2].get_yaxis().set_visible(False)
 
-ax[1, 2].plot(net.sim["t"], gref[0, :], label="gref")
+ax[1, 2].plot(net.sim["t"], gref[0, :]*1e9, label="gref")
 ax[1, 2].get_xaxis().set_visible(False)
 ax[1, 2].get_yaxis().set_visible(False)
 ax[1, 2].set_ylim(ax[1, 1].get_ylim())
 ax[1, 2].legend(loc="best")
 
-ax[2, 0].plot(net.sim["t"], step[0, :])
+ax[2, 0].plot(net.sim["t"], step[0, :]*1e9)
 ax[2, 0].set_xlabel("time (sec)")
-ax[2, 1].plot(net.sim["t"], step[0, :])
+ax[2, 0].tick_params(axis='both', which='major', labelsize=14)
+ax[2, 1].plot(net.sim["t"], step[0, :]*1e9)
 ax[2, 1].set_xlabel("time (sec)")
 ax[2, 1].get_yaxis().set_visible(False)
-ax[2, 2].plot(net.sim["t"], step[0, :])
+ax[2, 1].tick_params(axis='both', which='major', labelsize=14)
+
+ax[2, 2].plot(net.sim["t"], step[0, :]*1e9)
 ax[2, 2].set_xlabel("time (sec)")
 ax[2, 2].get_yaxis().set_visible(False)
-ax[2, 0].set_ylim(-0.2e-9, 4e-9)
-ax[2, 1].set_ylim(-0.2e-9, 4e-9)
-ax[2, 2].set_ylim(-0.2e-9, 4e-9)
+ax[2, 2].tick_params(axis='both', which='major', labelsize=14)
+ax[2, 0].set_ylim(-0.2, 4)
+ax[2, 1].set_ylim(-0.2, 4)
+ax[2, 2].set_ylim(-0.2, 4)
 #ax[2, 0].set_ylabel("input current (A)")
 
-savename = dirs.figures + "/adaptation.svg"
-fig.savefig(savename, format="svg")
+ax[0, 0].tick_params(axis='both', which='major', labelsize=14)
 
+plt.savefig(dirs.figures + "/adaptation.svg")
+plt.savefig(dirs.figures + "/adaptation.png")
+plt.savefig(dirs.figures + "/adaptation.pdf", bbox_inches='tight')
 
-# adaptation conductances
-ax[1, 2].plot(net.sim["t"], gsra[0, :], label="gsra")
-ax[1, 2].plot(net.sim["t"], gref[0, :], label="gref")
-ax[1, 2].legend(loc="best")
 
 # ===== DEMO: NETWORK DYNAMICS ===== #
 
@@ -169,7 +169,7 @@ net.config_recurrent_weights(density=0.1, ex=0.8)
 net.w["input"] *= net.w["input_scaling"]
 net.w["recurrent"] *= net.w["recurrent_scaling"]
 
-# plot input connectivity matrix
+# PLOT: CONNECTIVITY
 w1 = net.w["input"]
 
 plt.style.use("seaborn")
@@ -202,40 +202,70 @@ plt.show()
 plt.savefig(dirs.figures + "/recurrent_w.eps")
 plt.savefig(dirs.figures + "/recurrent_w.png")
 
-# create recording matrices
-net.config_recording(n_neurons=N, t=parameters.sim["t"], dataset=demo_ds, downsample=None)
+# PLOT: DYNAMICS
+net.config_recording(n_neurons=1000, t=parameters.sim["t"], dataset=demo_ds, downsample=None)
 
 net.train(dataset=demo_ds, current=step, reset_states="sentence")
 
 dat0 = np.hstack(net.recording["V"][0:20, :, :])
 dat1 = np.hstack(net.recording["spikes"][0:20, :, :])
 
-dat0[145, np.where(dat0[145, :] == -0.08)[0]-1] = -0.02
-dat0[557, np.where(dat0[557, :] == -0.08)[0]-1] = -0.02
-dat0[701, np.where(dat0[701, :] == -0.08)[0]-1] = -0.02
+fr = np.sum(dat1, axis=1)
+maxid = np.where(fr == np.max(fr))[0][0]
+minid = np.where(fr == 0)[0][50]
+avgid = np.where(fr == 5)[0][50]
+
+dat0[minid, np.where(dat0[minid, :] == -0.08)[0]-1] = -0.01
+dat0[maxid, np.where(dat0[maxid, :] == -0.08)[0]-1] = -0.01
+dat0[avgid, np.where(dat0[avgid, :] == -0.08)[0]-1] = -0.01
 
 onsets = np.arange(0, dat0.shape[1], 50)
 
-plt.style.use("default")
-fig, ax = plt.subplots(2, 1, sharex='col')
+# create data structure for scatterplot
+yv = np.zeros((dat1.shape))
+yv[:] = np.nan
+for i in range(dat1.shape[0]):
+    yv[i, np.where(dat1[i, :])[0]] = i
+
+
+plt.style.use("seaborn-talk")
+fig, ax = plt.subplots(4, 1, gridspec_kw={'height_ratios': [1, 1, 1, 3]}, sharex='col', figsize=(16, 7))
+
+t = np.arange(0, 1000)
 
 # plot membrane potentials
-ax[0].plot(dat0[557, 0:1000], label='non-firing neuron', alpha=0.9)
-ax[0].plot(dat0[701, 0:1000], label='17 Hz neuron', alpha=0.9)
-ax[0].plot(dat0[145, 0:1000], label='5 Hz neuron', alpha=0.9)
+ax[0].plot(dat0[minid, :]*1e3, label='non-firing neuron', color='black', alpha=0.7)
+ax[0].set_ylim(ax[0].get_ylim()[0], -0.01*1e3)
+ax[1].plot(dat0[maxid, :]*1e3, label='{} Hz neuron'.format(np.max(fr)), color='black', alpha=0.7)
+ax[2].plot(dat0[avgid, :]*1e3, label='5 Hz neuron', color='black', alpha=0.7)
 ax[0].legend(loc="best")
-ax[0].set_ylabel("membrane potential (mV)")
-ax[0].set_title("Example membrane dynamics")
+ax[1].legend(loc="best")
+ax[2].legend(loc="best")
+#ax[0].set_ylabel("membrane potential (mV)")
+#ax[0].set_title("Example membrane dynamics")
 
 # plot spikes
-plt.style.use("seaborn")
-ax[1].imshow(dat1, aspect="auto")
-ax[1].vlines(onsets, ymin=1000, ymax=900, linestyles="dashed", linewidth=0.7, label="sentence onset")
-ax[1].set_ylim(1000, 0)
-ax[1].set_xlabel("time (msec)")
-ax[1].set_ylabel("neuron")
-ax[1].set_title("Spiking activity in the network")
-for i in range(onsets.shape[0]):
-    ax[1].text(x=onsets[i]+2, y=950, s=demo_ds.sequence[i])
+#plt.style.use("seaborn")
 
+# use scatterplot
+
+#ax[1].imshow(dat1, aspect="auto")
+for i in range(dat1.shape[0]):
+    ax[3].scatter(x=t, y=yv[i, :], color='gray', marker='|')
+ax[3].vlines(onsets, ymin=0, ymax=50, linestyles="dashed", color='red', linewidth=1.5, label="sentence onset")
+ax[3].set_ylim(0, 1000)
+
+for i in range(onsets.shape[0]):
+    ax[3].text(x=onsets[i]+2, y=50, s=demo_ds.sequence[i], fontsize=14, color='red')
+
+ax[0].tick_params(axis='y', which='major', labelsize=14)
+ax[1].tick_params(axis='y', which='major', labelsize=14)
+ax[2].tick_params(axis='y', which='major', labelsize=14)
+ax[3].tick_params(axis='y', which='major', labelsize=14)
+ax[3].tick_params(axis='x', which='major', labelsize=14)
+
+plt.xlim(0, 1000)
+
+plt.savefig(dirs.figures + "/example-activity.pdf", bbox_inches='tight')
 plt.savefig(dirs.figures + "/example-activity.svg")
+plt.savefig(dirs.figures + "/example-activity.png")
