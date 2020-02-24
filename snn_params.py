@@ -1,6 +1,7 @@
-
-
 import numpy as np
+import csv
+import os
+import pandas as pd
 
 
 class Params(object):
@@ -93,4 +94,25 @@ class Params(object):
         self.data['validate'] = validate
         self.data['test'] = test
 
+    def to_csv(self, path):
+
+        dicts = {'membrane': self.memb,
+                 'synapse': self.syn,
+                 'gref': self.gref,
+                 'gsra': self.gsra,
+                 'sim': self.sim,
+                 'connectivity': self.w}
+
+        for dictkey in dicts:
+
+            filename = os.path.join(path, "{}_params.csv".format(dictkey))
+            df = None
+            if dictkey != 'connectivity':
+                df = pd.DataFrame().from_dict(dicts[dictkey], orient='index', columns=['value'])
+                df.reset_index(level=0, inplace=True)
+                df.rename(columns={'index': 'name'}, inplace=True)
+            elif dictkey == 'connectivity':
+                df = pd.DataFrame().from_dict(dicts[dictkey])
+
+            df.to_csv(path_or_buf=filename, index=False)
 
