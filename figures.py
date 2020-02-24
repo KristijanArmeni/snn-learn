@@ -20,7 +20,8 @@ if sys.argv[1] == "sequence-statistics":
     current_palette = sns.color_palette("Blues", 6)
     sns.catplot(x="pairs", kind="count", data=pd.Series({"pairs":data}),
                 color=current_palette[4])
-    plt.title("Pair statistics (16k)")
+    plt.tick_params(axis='both', which='major', labelsize='14')
+    #plt.title("Pair statistics (16k)")
 
     print("Saving {}".format(rootdir + "pair_statistics.png"))
     plt.savefig(rootdir + "pair_statistics.svg")
@@ -99,28 +100,41 @@ elif sys.argv[1] == "firing-rates":
     errs = np.std(meanRates, axis=0)
 
     # mean firing rates across subjects
-    _, ax = plt.subplots()
+    _, ax = plt.subplots(figsize=(6, 4))
 
     xval = np.array(['NA', 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.5])
 
-    ax.plot(meanRates.T[:, 1::], '-o', color='gray', alpha=0.3, zorder=1)
-    ax.plot(meanRates.T[:, 0], '-o', color='gray', alpha=0.5, zorder=1, label="network instance (10)")
+    ax.plot(meanRates.T[:, 1::], 'o', color='gray', alpha=0.3, zorder=1)
+    ax.plot(meanRates.T[:, 0], 'o', color='gray', alpha=0.6, zorder=1, label="network instance (10)")
     ax.errorbar(x=np.arange(0, 9), y=means, yerr=errs, linewidth=2.5, zorder=2, label='mean, SD')
     ax.set_xticks(ticks=np.arange(0, 9))
     ax.set_xticklabels(labels=xval)
     ax.set_ylim((2, 8))
-    ax.set_ylabel('network firing rate (Hz)')
-    ax.set_xlabel('spike-rate adaptation time constant (sec)')
+    #ax.set_ylabel('network firing rate (Hz)')
+    #ax.set_xlabel('spike-rate adaptation time constant (sec)')
     ax.set_title('Firing rates (N = 1000)')
     ax.legend(loc='best')
+    ax.tick_params(axis='both', which='major', labelsize=16)
 
+    plt.savefig(p.figures + '/firing_rates.svg', bbox_inches='tight')
     plt.savefig(p.figures + '/firing_rates.png')
-    plt.savefig(p.figures + '/firing_rates.svg')
 
     # give an example of distribution (subject 5, gsra = 0.4)
-    _, ax = plt.subplots()
-    ax.hist(tmp[4, 4, :])
+    fig, ax = plt.subplots(3, 1, sharey='all', sharex='all', figsize=(8, 4))
 
+    for i, a in enumerate([0, 4, 8]):
+        dat = tmp[4, a, :]
+        ax[i].hist(dat, bins=range(int(round(np.min(dat))), int(round(np.max(dat))) + 1, 1),
+                   color='gray', edgecolor='k', alpha=0.7)
+        ymax=ax[i].get_ylim()[1]*0.4
+        ax[i].vlines(np.mean(dat), ymin=0, ymax=ymax, color='red', linestyle='--', label='mean')
+        ax[i].legend(loc='best')
+        ax[i].tick_params(axis='y', which='major', labelsize=16)
+    ax[2].tick_params(axis='x', which='major', labelsize=16)
+
+    plt.savefig(p.figures + '/rates_dist.png', bbox_inches='tight')
+    plt.savefig(p.figures + '/rates_dist.svg', bbox_inches='tight')
+    #plt.xlim(0, 30)
 
 elif sys.argv[1] == "example-neurons":
 
@@ -260,11 +274,11 @@ if sys.argv[1] == "adaptation-curve":
 
 elif sys.argv[1] == "adaptation-response-decoding":
 
-    plt.style.use('default')
+    plt.style.use('seaborn-talk')
 
     # Load in actual scores
     nsub = np.arange(0, 10)
-    fig, ax = plt.subplots(2, 3, sharey='all', figsize=(18, 7))
+    fig, ax = plt.subplots(2, 3, sharey='all', figsize=(17, 7))
 
     # loop over network size
     for k, N in enumerate([100, 500, 1000]):
@@ -323,7 +337,7 @@ elif sys.argv[1] == "adaptation-response-decoding":
 
         xval = np.array(['NA', 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.5])
 
-        plt.style.use("seaborn-paper")
+        #plt.style.use("seaborn-paper")
         colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
         # for k in ranged.shape[1]-1):
@@ -338,19 +352,21 @@ elif sys.argv[1] == "adaptation-response-decoding":
 
         ax[0, k].set_xticks(ticks=np.arange(0, 9))
         ax[0, k].get_xaxis().set_ticklabels([])
-        if k == 0:
-            ax[0, k].set_ylabel("{} (percent)".format(score))
-        ax[0, k].set_title("Neuronal adaptation for memory (N = {})".format(N))
+        #if k == 0:
+            # ax[0, k].set_ylabel("test {} score\n(cross-validated)".format(score))
+        ax[0, k].tick_params(axis='y', which='major', labelsize=14)
+        #ax[0, k].set_title("Neuronal adaptation for memory (N = {})".format(N))
         ax[0, k].legend(loc="best")
 
         # ax2 = ax.twinx()
         ax[1, k].errorbar(x=np.arange(0, 9), y=dpre_avg, yerr=dpre_ers, color=colors[0], linestyle='--', linewidth=2.5, label="precision (mean, SD)")
         ax[1, k].errorbar(x=np.arange(0, 9), y=drec_avg, yerr=drec_ers, color=colors[0], linestyle='-', linewidth=2.5, label="recall (mean, SD)")
-        if k == 0:
-            ax[1, k].set_ylabel("precision/recall (percent)")
-        ax[1, k].set_xlabel("spike-rate adaptation (sec)")
+        #if k == 0:
+            #ax[1, k].set_ylabel("test precision/recall score\n(cross-validated)")
+        #ax[1, k].set_xlabel("spike-rate adaptation (sec)")
         ax[1, k].set_xticks(ticks=np.arange(0, 9))
         ax[1, k].set_xticklabels(labels=xval)
+        ax[1, k].tick_params(axis='both', which='major', labelsize=14)
         ax[1, k].legend(loc="best")
         #ax2.set_ylabel("precision/recall (proportion)")
         #ax2.tick_params(axis='y', labelcolor=colors[1])
@@ -377,7 +393,7 @@ elif sys.argv[1] == 'response-decoding-dependency':
 
         for i in np.arange(0, 10):
 
-            subdata = load(p.results + "/scores_1000-A-observed-s{:02d}_{}.pkl".format((i + 1), depth))
+            subdata = load(p.results + "/newtime/scores_1000-A-observed-s{:02d}_{}.pkl".format((i + 1), depth))
             d1 = []
             d2 = []
             d3 = []
@@ -402,9 +418,11 @@ elif sys.argv[1] == 'response-decoding-dependency':
 
         datalist.append(data)
 
-    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-    fig, ax = plt.subplots(1, 2)
+    # colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
+
+    fig, ax = plt.subplots(1, 2)
+    cm = plt.get_cmap('gray')
 
     #----- PLOT -----#
 
@@ -432,21 +450,20 @@ elif sys.argv[1] == 'response-decoding-dependency':
     ers = [np.std(dat, axis=1) for dat in d]
     avg = [np.mean(dat, axis=1) for dat in d]
 
-
-    ax[1].errorbar(x=np.arange(0, 9), y=avg[0], yerr=ers[0], linewidth=2.5, color=colors[0])
-    ax[1].errorbar(x=np.arange(0, 9), y=avg[1], yerr=ers[1], linewidth=2.5, color=colors[1])
-    ax[1].errorbar(x=np.arange(0, 9), y=avg[2], yerr=ers[2], linewidth=2.5, color=colors[2])
-    ax[1].errorbar(x=np.arange(0, 9), y=avg[3], yerr=ers[3], linewidth=2.5, color=colors[3])
+    ax[1].errorbar(x=np.arange(0, 9), y=avg[0], yerr=ers[0], linewidth=2.5, color=cm(150)[0:3])
+    ax[1].errorbar(x=np.arange(0, 9), y=avg[1], yerr=ers[1], linewidth=2.5, color=cm(100)[0:3])
+    ax[1].errorbar(x=np.arange(0, 9), y=avg[2], yerr=ers[2], linewidth=2.5, color=cm(50)[0:3])
+    ax[1].errorbar(x=np.arange(0, 9), y=avg[3], yerr=ers[3], linewidth=2.5, color=cm(0)[0:3])
 
     # shape = (subjects, tau, crossval)
     d = [np.mean(l['recall'], axis=2).T for l in datalist]
     ers = [np.std(dat, axis=1) for dat in d]
     avg = [np.mean(dat, axis=1) for dat in d]
 
-    ax[1].errorbar(x=np.arange(0, 9), linestyle='--', y=avg[0], yerr=ers[0], linewidth=3, color=colors[0], label='level 1')
-    ax[1].errorbar(x=np.arange(0, 9), linestyle='--', y=avg[1], yerr=ers[1], linewidth=3, color=colors[1], label='level 2')
-    ax[1].errorbar(x=np.arange(0, 9), linestyle='--', y=avg[2], yerr=ers[2], linewidth=3, color=colors[2], label='level 3')
-    ax[1].errorbar(x=np.arange(0, 9), linestyle='--', y=avg[3], yerr=ers[3], linewidth=3, color=colors[3], label='level 4')
+    ax[1].errorbar(x=np.arange(0, 9), linestyle='--', y=avg[0], yerr=ers[0], linewidth=3, color='C1', label='level 1')
+    ax[1].errorbar(x=np.arange(0, 9), linestyle='--', y=avg[1], yerr=ers[1], linewidth=3, color='C2', label='level 2')
+    ax[1].errorbar(x=np.arange(0, 9), linestyle='--', y=avg[2], yerr=ers[2], linewidth=3, color='C3', label='level 3')
+    ax[1].errorbar(x=np.arange(0, 9), linestyle='--', y=avg[3], yerr=ers[3], linewidth=3, color='C4', label='level 4')
 
     ax[1].set_ylabel("precision/recall (prop.)")
     ax[1].set_xlabel("adaptation time constant (sec)")
@@ -461,6 +478,7 @@ elif sys.argv[1] == 'response-decoding-dependency':
 
     #----- SHAPE DATAFRAME -----#
 
+    plt.style.use("seaborn")
     df = pd.DataFrame(np.zeros(shape=(4*10*9, 6)), columns=['subject', 'tau', 'level', 'kappa', 'precision', 'recall'])
 
     dat = np.stack(d).reshape((4*9*10))
@@ -479,9 +497,31 @@ elif sys.argv[1] == 'response-decoding-dependency':
 
     df['tau'].astype('category')
     df['level'].astype('category')
-    ax = sns.catplot(x='level', y='kappa', hue='tau', palette='ch:.25', kind='bar', data=df, legend_out=True)
-    ax.set(xlabel='distance', xticklabels=['1', '2', '3', '4'])
-    ax._legend.set_title('tau (sec)')
+    fig, ax = plt.subplots(1, 4, sharey='all', figsize=(14, 4))
+    sns.stripplot(x='tau', y='kappa', data=df[df['level'] == 1], color='gray', alpha=0.6, ax=ax[0], zorder=2)
+    sns.stripplot(x='tau', y='kappa', data=df[df['level'] == 2], color='gray', alpha=0.6, ax=ax[1], zorder=2)
+    sns.stripplot(x='tau', y='kappa', data=df[df['level'] == 3], color='gray', alpha=0.6, ax=ax[2], zorder=2)
+    sns.stripplot(x='tau', y='kappa', data=df[df['level'] == 4], color='gray', alpha=0.6, ax=ax[3], zorder=2)
+    sns.pointplot(x='tau', y='kappa', data=df[df['level'] == 1], ax=ax[0], alpha=0.8, zorder=1)
+    sns.pointplot(x='tau', y='kappa', data=df[df['level'] == 2], ax=ax[1], alpha=0.8, zorder=1)
+    sns.pointplot(x='tau', y='kappa', data=df[df['level'] == 3], ax=ax[2], alpha=0.8, zorder=1)
+    sns.pointplot(x='tau', y='kappa', data=df[df['level'] == 4], ax=ax[3], alpha=0.8, zorder=1)
+
+    #ax[0].set(ylabel='test kappa score\n(cross-validated)', xlabel='tau (sec)', title='distance 1')
+    #ax[1].set(ylabel='', xlabel='tau (sec)', title='distance 2')
+    #ax[2].set(ylabel='', xlabel='tau (sec)', title='distance 3')
+    #ax[3].set(ylabel='', xlabel='tau (sec)', title='distance 4')
+    ax[0].tick_params(axis='y', which='major', labelsize=14)
+    ax[0].tick_params(axis='x', which='major', labelsize=14)
+    ax[1].tick_params(axis='x', which='major', labelsize=14)
+    ax[2].tick_params(axis='x', which='major', labelsize=14)
+    ax[3].tick_params(axis='x', which='major', labelsize=14)
+
+    plt.savefig(p.figures + '/response-decoding-dependency-line.png')
+    plt.savefig(p.figures + '/response-decoding-dependency-line.svg')
+
+    ax = sns.catplot(x='level', y='kappa', hue='tau', color='gray', data=df, ci=95, kind='bar')
+    ax.set(xlabel='distance', ylabel='test kappa score\n(cross-validated)')
     ax.savefig(p.figures + '/response-decoding-dependency-bar.png')
     ax.savefig(p.figures + '/response-decoding-dependency-bar.svg')
 
