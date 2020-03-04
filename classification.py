@@ -99,38 +99,6 @@ if sys.argv[1] == "learning-curve-response":
 
         save(scores, p.results + "/learning-curve_response-{}.pkl".format(N))
 
-elif sys.argv[1] == "validation-curve-stim":
-
-    # ===== LOGISTIC REGRESSION: STIMULUS IDENTITY, VALIDATION CURVE ===== #
-
-    scaler = StandardScaler()
-    logit = LogisticRegression(fit_intercept=True, multi_class="multinomial", max_iter=300, class_weight="balanced",
-                               solver="newton-cg", penalty="l2")
-    range = np.logspace(-4, 4, 9, base=10)
-
-    for i, x in enumerate([x100, x500, x1000]):
-
-        N = x[0, :, :].shape[1]
-        x_norm = scaler.fit_transform(x[0, :, :])  # (time_slice, trial, neuron): first dimension stores time window
-
-        conditions = ["observed", "permuted"]
-        responses = {conditions[0]: y_rsp, conditions[1]: y_rsp0}
-        scores = {conditions[0]: None, conditions[1]: None}
-
-        for j, condition in enumerate(conditions):
-
-            y = responses[condition]
-
-            print("Validation curve for {} condition and N = {}".format(condition, N))
-
-            # fit logistic regression
-            train_sc, val_sc = validation_curve(estimator=logit, X=x_norm, y=y, cv=5, param_name="C",
-                                                        param_range=range, scoring="balanced_accuracy")
-
-            scores[condition] = [train_sc, val_sc, range]
-
-        save(scores, p.results + "/validation-curve_symbol-{}.pkl".format(N))
-
 elif sys.argv[1] == "learning-curve-stim":
 
     # ===== LOGISTIC REGRESSION: STIMULUS IDENTITY, VALIDATION CURVE ===== #
