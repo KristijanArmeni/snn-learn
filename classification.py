@@ -65,40 +65,8 @@ assert np.sum(levels[levIds[1]] == 2) == maxsamples
 assert np.sum(levels[levIds[2]] == 3) == maxsamples
 assert np.sum(levels[levIds[3]] == 4) == maxsamples
 
-if sys.argv[1] == "validation-curve-response":
 
-    # ===== LOGISTIC REGRESSION: RESPONSES-TRAINING CURVE ===== #
-    scaler = StandardScaler()
-    logit = LogisticRegression(fit_intercept=True, class_weight=None, solver="newton-cg", penalty="l2")
-    range = np.array([1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1, 1e2, 1e3, 1e4])
-
-    trlidx = np.arange(0, 2000)
-
-    for i, x in enumerate([x100, x500, x1000]):
-
-        conditions = ["observed", "permuted"]
-        responses = {conditions[0]: y_rsp, conditions[1]: y_rsp0}
-        scores = {conditions[0]: None, conditions[1]: None}
-
-        N = x[0, trlidx, :].shape[1]
-        x_norm = scaler.fit_transform(x[0, trlidx, :])  # (time_slice, trial, neuron): first dimension stores time window
-
-        for j, condition in enumerate(conditions):
-
-            print("Validation curve for {} condition, N = {} and {} samples".format(condition, N, len(trlidx)))
-
-            y = responses[condition][trlidx]
-
-            # fit logistic regression
-            train_sc, val_sc = validation_curve(estimator=logit, X=x_norm, y=y, cv=5, param_name="C",
-                                                param_range=range, scoring="balanced_accuracy")
-
-            scores[condition] = [train_sc, val_sc, range]
-
-        save(scores, p.results + "/validation-curve_response-{}.pkl".format(N))
-
-
-elif sys.argv[1] == "learning-curve-response":
+if sys.argv[1] == "learning-curve-response":
 
     scaler = StandardScaler()
     logit = LogisticRegression(fit_intercept=True, class_weight="balanced", C=1.0, solver="newton-cg", penalty="l2")
@@ -252,7 +220,7 @@ elif sys.argv[1] == "adaptation-curve":
     N = 1000
     targetsOnly = False
     balanceDs = False
-    level = 1
+    level = 4
 
     # select targets only
     print("TargetsOnly == {}".format(targetsOnly))
