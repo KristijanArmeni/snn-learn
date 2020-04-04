@@ -3,12 +3,10 @@ import numpy as np
 
 # visualization
 from matplotlib import pyplot as plt
-import matplotlib.gridspec as gridspec
-from stimuli import generate_sequence, encode_input, Dataset
+from stimuli import Dataset
 from snn_params import Params
 from snn_network import SNN
-from util import load, save, Paths
-from plots import plot_trial
+from util import load, Paths
 
 dirs = Paths()
 
